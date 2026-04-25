@@ -13,10 +13,25 @@ async def send_message(current_user, data):
         "sender_id": current_user["sub"],
         "receiver_id": data.receiver_id,
         "content": data.content,
+        "status": "sent",
+        "read": False,
         "created_at": now
     }
 
     result = await db.messages.insert_one(message)
+    
+    await db.chats.update_one(
+        {"_id": ObjectId(data.chat_id)},
+        {
+            "$set": {
+                "updated_at": now,
+                "last_message": {
+                    "content": data.content,
+                    "created_at": now
+                }
+            }
+        }
+    )
 
     ws_message = {
         "_id": str(result.inserted_id),
@@ -24,7 +39,8 @@ async def send_message(current_user, data):
         "sender_id": current_user["sub"],
         "receiver_id": data.receiver_id,
         "content": data.content,
-        "created_at": now.isoformat()
+        "created_at": now.isoformat(),
+        "status": "sent"
     }
 
     await manager.send_personal_message(
