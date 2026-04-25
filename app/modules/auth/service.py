@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from app.core.database import db
+from app.core.database import get_database
 from app.core.security import (
     hash_password,
     verify_password,
@@ -7,8 +7,13 @@ from app.core.security import (
 )
 from .models import build_user
 
+
 async def register_user(data):
-    user_exists = await db.users.find_one({"email": data.email})
+    db = get_database()
+
+    user_exists = await db.users.find_one({
+        "email": data.email
+    })
 
     if user_exists:
         raise HTTPException(
@@ -16,7 +21,7 @@ async def register_user(data):
             detail="Email already registered"
         )
 
-    user = build_user(data.dict())
+    user = build_user(data.model_dump())
 
     user["password"] = hash_password(data.password)
 
@@ -27,8 +32,13 @@ async def register_user(data):
         "id": str(result.inserted_id)
     }
 
+
 async def login_user(data):
-    user = await db.users.find_one({"email": data.email})
+    db = get_database()
+
+    user = await db.users.find_one({
+        "email": data.email
+    })
 
     if not user:
         raise HTTPException(
