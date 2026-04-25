@@ -3,6 +3,10 @@ from app.core.config import settings
 from app.modules.auth.router import router as auth_router
 from app.modules.users.router import router as users_router
 from fastapi.middleware.cors import CORSMiddleware
+from app.modules.chats.router import router as chats_router
+from app.modules.messages.router import router as messages_router
+from app.core.websocket import manager
+from fastapi import WebSocket, WebSocketDisconnect
 
 app = FastAPI(title=settings.APP_NAME)
 app.include_router(auth_router)
@@ -14,7 +18,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(chats_router)
+app.include_router(messages_router)
 
 @app.get("/")
 def health():
     return {"status": "ok"}
+
+@app.websocket("/ws/{user_id}")
+async def websocket_endpoint(
+    websocket: WebSocket,
+    user_id: str
+):
+    await manager.connect(user_id, websocket)
+
+    try:
+        while True:
+            await websocket.receive_text()
+
+    except WebSocketDisconnect:
+        manager.disconnect(user_id)
