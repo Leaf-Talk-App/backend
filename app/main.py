@@ -7,6 +7,7 @@ from app.modules.chats.router import router as chats_router
 from app.modules.messages.router import router as messages_router
 from app.core.websocket import manager
 from fastapi import WebSocket, WebSocketDisconnect
+from app.modules.ai.router import router as ai_router
 
 app = FastAPI(title=settings.APP_NAME)
 app.include_router(auth_router)
@@ -20,6 +21,7 @@ app.add_middleware(
 )
 app.include_router(chats_router)
 app.include_router(messages_router)
+app.include_router(ai_router)
 
 @app.get("/")
 def health():
