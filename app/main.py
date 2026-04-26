@@ -8,6 +8,8 @@ from app.modules.messages.router import router as messages_router
 from app.core.websocket import manager
 from fastapi import WebSocket, WebSocketDisconnect
 from app.modules.ai.router import router as ai_router
+import asyncio
+from app.modules.scheduler.service import run_scheduler
 
 app = FastAPI(title=settings.APP_NAME)
 app.include_router(auth_router)
@@ -40,3 +42,13 @@ async def websocket_endpoint(
 
     except WebSocketDisconnect:
         manager.disconnect(user_id)
+        
+@app.on_event("startup")
+async def startup_event():
+
+    async def scheduler_loop():
+        while True:
+            await run_scheduler()
+            await asyncio.sleep(60)
+
+    asyncio.create_task(scheduler_loop())

@@ -13,4 +13,4 @@ async def chat_ai(
     data: AIMessageSchema,
     user=Depends(get_current_user)
 ):
-    return await ask_ai(data.message)
+    return await ask_ai(data.message, user)
