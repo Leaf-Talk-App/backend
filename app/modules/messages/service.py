@@ -61,3 +61,54 @@ async def get_messages(chat_id):
         msg["_id"] = str(msg["_id"])
 
     return messages
+
+async def react_message(current_user, data):
+    db = get_database()
+
+    await db.messages.update_one(
+        {"_id": ObjectId(data.message_id)},
+        {
+            "$addToSet": {
+                f"reactions.{data.emoji}":
+                current_user["sub"]
+            }
+        }
+    )
+
+    return {"message": "reacted"}
+
+async def delete_message(current_user, message_id):
+    db = get_database()
+
+    await db.messages.update_one(
+        {
+            "_id": ObjectId(message_id),
+            "sender_id": current_user["sub"]
+        },
+        {
+            "$set": {
+                "deleted": True,
+                "content": "Mensagem apagada"
+            }
+        }
+    )
+
+    return {"message": "deleted"}
+
+async def edit_message(current_user, message_id, content):
+    db = get_database()
+
+    await db.messages.update_one(
+        {
+            "_id": ObjectId(message_id),
+            "sender_id": current_user["sub"]
+        },
+        {
+            "$set": {
+                "content": content,
+                "edited": True
+            }
+        }
+    )
+
+    return {"message": "edited"}
