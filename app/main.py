@@ -13,6 +13,7 @@ from app.modules.scheduler.service import run_scheduler
 from fastapi.staticfiles import StaticFiles
 from app.modules.uploads.router import router as uploads_router
 from app.modules.groups.router import router as groups_router
+from app.modules.scheduler.service import start_scheduler
 
 app = FastAPI(title=settings.APP_NAME)
 app.include_router(auth_router)
@@ -58,3 +59,7 @@ async def startup_event():
             await asyncio.sleep(60)
 
     asyncio.create_task(scheduler_loop())
+    
+@app.on_event("startup")
+async def startup():
+    start_scheduler()

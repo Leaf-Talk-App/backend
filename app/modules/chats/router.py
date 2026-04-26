@@ -9,6 +9,7 @@ from .service import (
     mute_chat,
     hide_chat
 )
+from .service import my_chats
 
 router = APIRouter(
     prefix="/chats",
@@ -58,3 +59,9 @@ async def hide(
     user=Depends(get_current_user)
 ):
     return await hide_chat(user, data)
+
+@router.get("/my")
+async def my(
+    user=Depends(get_current_user)
+):
+    return await my_chats(user)

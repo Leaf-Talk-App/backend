@@ -120,3 +120,57 @@ async def hide_chat(current_user, data):
     )
 
     return {"message": "Chat hidden"}
+
+async def my_chats(current_user):
+    db = get_database()
+
+    user_id = current_user["sub"]
+
+    chats = await db.chats.find({
+        "members": user_id
+    }).to_list(100)
+
+    result = []
+
+    for chat in chats:
+        chat_id = str(chat["_id"])
+
+        settings = await db.user_chat_settings.find_one({
+            "user_id": user_id,
+            "chat_id": chat_id
+        })
+
+        if settings and settings.get("hidden"):
+            continue
+
+        unread = await db.messages.count_documents({
+            "chat_id": chat_id,
+            "receiver_id": user_id,
+            "read": False
+        })
+
+        item = {
+            "_id": chat_id,
+            "members": chat["members"],
+            "updated_at": chat.get("updated_at"),
+            "last_message": chat.get("last_message"),
+            "pinned": settings.get("pinned", False) if settings else False,
+            "archived": settings.get("archived", False) if settings else False,
+            "muted": settings.get("muted", False) if settings else False,
+            "unread_count": unread
+        }
+
+        result.append(item)
+
+    result.sort(
+        key=lambda x: (
+            x["archived"],
+            not x["pinned"],
+            x["updated_at"] or ""
+        ),
+        reverse=False
+    )
+
+    result.reverse()
+
+    return result
