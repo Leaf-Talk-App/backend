@@ -6,6 +6,12 @@ from .service import (
     update_profile,
     search_users
 )
+from .schemas import BlockUserSchema
+from .service import (
+    block_user,
+    unblock_user,
+    list_blocked_users
+)
 
 router = APIRouter(
     prefix="/users",
@@ -28,4 +34,29 @@ async def search(
     q: str,
     user=Depends(get_current_user)
 ):
-    return await search_users(q)
+   return await search_users(
+        user,
+        q
+    )
+
+@router.post("/block")
+async def block(
+    data: BlockUserSchema,
+    user=Depends(get_current_user)
+):
+    return await block_user(user, data)
+
+
+@router.delete("/block/{user_id}")
+async def unblock(
+    user_id: str,
+    user=Depends(get_current_user)
+):
+    return await unblock_user(user, user_id)
+
+
+@router.get("/blocked")
+async def blocked(
+    user=Depends(get_current_user)
+):
+    return await list_blocked_users(user)

@@ -5,3 +5,6 @@ class UpdateProfileSchema(BaseModel):
     bio: str | None = None
     avatar: str | None = None
     searchable: bool | None = None
+    
+class BlockUserSchema(BaseModel):
+    user_id: str

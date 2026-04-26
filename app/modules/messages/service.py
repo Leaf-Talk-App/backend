@@ -6,6 +6,14 @@ from app.core.websocket import manager
 async def send_message(current_user, data):
     db = get_database()
 
+    blocked = await db.blocked_users.find_one({
+        "user_id": data.receiver_id,
+        "blocked_user_id": current_user["sub"]
+    })
+
+    if blocked:
+        return {"error": "You are blocked"}
+
     now = datetime.utcnow()
 
     message = {
@@ -19,7 +27,7 @@ async def send_message(current_user, data):
     }
 
     result = await db.messages.insert_one(message)
-    
+
     await db.chats.update_one(
         {"_id": ObjectId(data.chat_id)},
         {
@@ -49,33 +57,6 @@ async def send_message(current_user, data):
     )
 
     return {"message": "sent"}
-
-async def get_messages(chat_id):
-    db = get_database()
-
-    messages = await db.messages.find({
-        "chat_id": chat_id
-    }).sort("created_at", 1).to_list(100)
-
-    for msg in messages:
-        msg["_id"] = str(msg["_id"])
-
-    return messages
-
-async def react_message(current_user, data):
-    db = get_database()
-
-    await db.messages.update_one(
-        {"_id": ObjectId(data.message_id)},
-        {
-            "$addToSet": {
-                f"reactions.{data.emoji}":
-                current_user["sub"]
-            }
-        }
-    )
-
-    return {"message": "reacted"}
 
 async def delete_message(current_user, message_id):
     db = get_database()
