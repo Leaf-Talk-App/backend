@@ -12,3 +12,7 @@ class AddMemberSchema(BaseModel):
 class SendGroupMessageSchema(BaseModel):
     group_id: str
     content: str
+
+class RemoveMemberSchema(BaseModel):
+    group_id: str
+    user_id: str

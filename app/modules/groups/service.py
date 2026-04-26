@@ -1,9 +1,8 @@
+import secrets
 from datetime import datetime
 from bson import ObjectId
-
 from app.core.database import get_database
 from app.core.websocket import manager
-
 
 async def create_group(current_user, data):
     db = get_database()
@@ -14,7 +13,10 @@ async def create_group(current_user, data):
 
     group = {
         "name": data.name,
+        "photo": None,
         "members": members,
+        "admins": [current_user["sub"]],
+        "invite_code": secrets.token_hex(4),
         "created_by": current_user["sub"],
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow()
@@ -23,10 +25,8 @@ async def create_group(current_user, data):
     result = await db.groups.insert_one(group)
 
     return {
-        "group_id": str(result.inserted_id),
-        "name": data.name
+        "group_id": str(result.inserted_id)
     }
-
 
 async def my_groups(current_user):
     db = get_database()
@@ -40,9 +40,15 @@ async def my_groups(current_user):
 
     return groups
 
-
 async def add_member(current_user, data):
     db = get_database()
+
+    group = await db.groups.find_one({
+        "_id": ObjectId(data.group_id)
+    })
+
+    if current_user["sub"] not in group["admins"]:
+        return {"error": "Only admins"}
 
     await db.groups.update_one(
         {"_id": ObjectId(data.group_id)},
@@ -54,7 +60,6 @@ async def add_member(current_user, data):
     )
 
     return {"message": "Member added"}
-
 
 async def send_group_message(current_user, data):
     db = get_database()
@@ -94,3 +99,53 @@ async def send_group_message(current_user, data):
             )
 
     return {"message": "sent"}
+
+async def remove_member(current_user, data):
+    db = get_database()
+
+    group = await db.groups.find_one({
+        "_id": ObjectId(data.group_id)
+    })
+
+    if current_user["sub"] not in group["admins"]:
+        return {"error": "Only admins"}
+
+    await db.groups.update_one(
+        {"_id": ObjectId(data.group_id)},
+        {
+            "$pull": {
+                "members": data.user_id
+            }
+        }
+    )
+
+    return {"message": "Removed"}
+
+async def leave_group(current_user, group_id):
+    db = get_database()
+
+    await db.groups.update_one(
+        {"_id": ObjectId(group_id)},
+        {
+            "$pull": {
+                "members": current_user["sub"],
+                "admins": current_user["sub"]
+            }
+        }
+    )
+
+    return {"message": "Left group"}
+
+async def join_by_code(current_user, code):
+    db = get_database()
+
+    await db.groups.update_one(
+        {"invite_code": code},
+        {
+            "$addToSet": {
+                "members": current_user["sub"]
+            }
+        }
+    )
+
+    return {"message": "Joined"}
