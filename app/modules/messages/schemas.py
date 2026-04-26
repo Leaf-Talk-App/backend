@@ -12,3 +12,6 @@ class SendMessageSchema(BaseModel):
 class ReactMessageSchema(BaseModel):
     message_id: str
     emoji: str
+
+class EditMessageSchema(BaseModel):
+    content: str

@@ -119,3 +119,13 @@ async def list_blocked_users(current_user):
         })
 
     return result
+
+async def get_user_status(user_id):
+    db = get_database()
+
+    user = await db.users.find_one(
+        {"_id": user_id},
+        {"online": 1, "last_seen": 1}
+    )
+
+    return user

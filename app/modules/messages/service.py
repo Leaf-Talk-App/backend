@@ -16,12 +16,18 @@ async def send_message(current_user, data):
 
     now = datetime.utcnow()
 
+    status = (
+        "delivered"
+        if manager.is_online(data.receiver_id)
+        else "sent"
+    )
+
     message = {
         "chat_id": data.chat_id,
         "sender_id": current_user["sub"],
         "receiver_id": data.receiver_id,
         "content": data.content,
-        "status": "sent",
+        "status": status,
         "read": False,
         "created_at": now
     }
@@ -35,7 +41,8 @@ async def send_message(current_user, data):
                 "updated_at": now,
                 "last_message": {
                     "content": data.content,
-                    "created_at": now
+                    "created_at": now,
+                    "status": status
                 }
             }
         }
@@ -48,7 +55,7 @@ async def send_message(current_user, data):
         "receiver_id": data.receiver_id,
         "content": data.content,
         "created_at": now.isoformat(),
-        "status": "sent"
+        "status": status
     }
 
     await manager.send_personal_message(
@@ -56,7 +63,10 @@ async def send_message(current_user, data):
         ws_message
     )
 
-    return {"message": "sent"}
+    return {
+        "message": "sent",
+        "status": status
+    }
 
 async def delete_message(current_user, message_id):
     db = get_database()
@@ -93,3 +103,47 @@ async def edit_message(current_user, message_id, content):
     )
 
     return {"message": "edited"}
+
+async def mark_as_read(chat_id, user):
+    db = get_database()
+
+    await db.messages.update_many(
+        {
+            "chat_id": chat_id,
+            "receiver_id": user["sub"],
+            "read": False
+        },
+        {
+            "$set": {
+                "read": True,
+                "status": "read",
+                "read_at": datetime.utcnow()
+            }
+        }
+    )
+
+    return {"message": "updated"}
+
+async def get_messages(chat_id):
+    db = get_database()
+
+    messages = await db.messages.find(
+        {
+            "chat_id": chat_id
+        }
+    ).sort("created_at", 1).to_list(200)
+
+    for message in messages:
+        message["_id"] = str(message["_id"])
+
+        if "created_at" in message:
+            message["created_at"] = message[
+                "created_at"
+            ].isoformat()
+
+        if "read_at" in message:
+            message["read_at"] = message[
+                "read_at"
+            ].isoformat()
+
+    return messages
