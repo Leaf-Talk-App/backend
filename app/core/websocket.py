@@ -11,11 +11,19 @@ class ConnectionManager:
     def disconnect(self, user_id: str):
         self.active_connections.pop(user_id, None)
 
-    async def send_personal_message(self, user_id: str, message: dict):
+    async def send_personal_message(
+        self,
+        user_id: str,
+        message: dict
+    ):
         websocket = self.active_connections.get(user_id)
 
         if websocket:
             await websocket.send_json(message)
 
+    def get_online_users(self):
+        return list(
+            self.active_connections.keys()
+        )
 
 manager = ConnectionManager()

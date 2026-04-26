@@ -10,6 +10,8 @@ from fastapi import WebSocket, WebSocketDisconnect
 from app.modules.ai.router import router as ai_router
 import asyncio
 from app.modules.scheduler.service import run_scheduler
+from fastapi.staticfiles import StaticFiles
+from app.modules.uploads.router import router as uploads_router
 
 app = FastAPI(title=settings.APP_NAME)
 app.include_router(auth_router)
@@ -24,6 +26,8 @@ app.add_middleware(
 app.include_router(chats_router)
 app.include_router(messages_router)
 app.include_router(ai_router)
+app.include_router(uploads_router)
+app.mount("/storage", StaticFiles(directory="storage"), name="storage")
 
 @app.get("/")
 def health():
