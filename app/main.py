@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from app.modules.uploads.router import router as uploads_router
 from app.modules.groups.router import router as groups_router
 from app.modules.scheduler.service import start_scheduler
+from fastapi.responses import FileResponse
 
 app = FastAPI(title=settings.APP_NAME)
 app.include_router(auth_router)
@@ -30,7 +31,11 @@ app.include_router(messages_router)
 app.include_router(ai_router)
 app.include_router(uploads_router)
 app.include_router(groups_router)
-app.mount("/storage", StaticFiles(directory="storage"), name="storage")
+app.mount("/storage", StaticFiles(directory="static"), name="static")
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse("static/favicon.ico")
 
 @app.get("/")
 def health():
@@ -49,16 +54,6 @@ async def websocket_endpoint(
 
     except WebSocketDisconnect:
         manager.disconnect(user_id)
-        
-@app.on_event("startup")
-async def startup_event():
-
-    async def scheduler_loop():
-        while True:
-            await run_scheduler()
-            await asyncio.sleep(60)
-
-    asyncio.create_task(scheduler_loop())
     
 @app.on_event("startup")
 async def startup():
