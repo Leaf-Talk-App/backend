@@ -45,3 +45,78 @@ async def list_chats(current_user):
         chat["_id"] = str(chat["_id"])
 
     return chats
+
+async def archive_chat(current_user, data):
+    db = get_database()
+
+    await db.user_chat_settings.update_one(
+        {
+            "user_id": current_user["sub"],
+            "chat_id": data.chat_id
+        },
+        {
+            "$set": {
+                "archived": True
+            }
+        },
+        upsert=True
+    )
+
+    return {"message": "Chat archived"}
+
+
+async def pin_chat(current_user, data):
+    db = get_database()
+
+    await db.user_chat_settings.update_one(
+        {
+            "user_id": current_user["sub"],
+            "chat_id": data.chat_id
+        },
+        {
+            "$set": {
+                "pinned": True
+            }
+        },
+        upsert=True
+    )
+
+    return {"message": "Chat pinned"}
+
+
+async def mute_chat(current_user, data):
+    db = get_database()
+
+    await db.user_chat_settings.update_one(
+        {
+            "user_id": current_user["sub"],
+            "chat_id": data.chat_id
+        },
+        {
+            "$set": {
+                "muted": True
+            }
+        },
+        upsert=True
+    )
+
+    return {"message": "Chat muted"}
+
+
+async def hide_chat(current_user, data):
+    db = get_database()
+
+    await db.user_chat_settings.update_one(
+        {
+            "user_id": current_user["sub"],
+            "chat_id": data.chat_id
+        },
+        {
+            "$set": {
+                "hidden": True
+            }
+        },
+        upsert=True
+    )
+
+    return {"message": "Chat hidden"}
