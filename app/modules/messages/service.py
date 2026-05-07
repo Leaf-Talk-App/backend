@@ -26,7 +26,12 @@ async def send_message(current_user, data):
         "chat_id": data.chat_id,
         "sender_id": current_user["sub"],
         "receiver_id": data.receiver_id,
+
         "content": data.content,
+
+        "type": data.type,
+        "file_url": data.file_url,
+
         "status": status,
         "read": False,
         "created_at": now
@@ -53,7 +58,12 @@ async def send_message(current_user, data):
         "chat_id": data.chat_id,
         "sender_id": current_user["sub"],
         "receiver_id": data.receiver_id,
+
         "content": data.content,
+
+        "type": data.type,
+        "file_url": data.file_url,
+
         "created_at": now.isoformat(),
         "status": status
     }
@@ -175,6 +185,8 @@ async def get_messages(chat_id):
             "sender_id": message["sender_id"],
             "receiver_id": message["receiver_id"],
             "content": message["content"],
+            "type": message.get("type", "text"),
+            "file_url": message.get("file_url"),
             "status": message.get("status"),
             "read": message.get("read"),
             "edited": message.get("edited", False),

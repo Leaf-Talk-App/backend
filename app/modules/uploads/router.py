@@ -1,27 +1,33 @@
-from fastapi import APIRouter, UploadFile, File
 import os
-import uuid
+from fastapi import APIRouter
+from fastapi import UploadFile
+from fastapi import File
 
 router = APIRouter(
-    prefix="/uploads",
-    tags=["Uploads"]
+    prefix="/upload",
+    tags=["Upload"]
 )
 
-UPLOAD_DIR = "storage"
+UPLOAD_DIR = "uploads"
 
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(
+    UPLOAD_DIR,
+    exist_ok=True
+)
 
 
-@router.post("/file")
-async def upload_file(file: UploadFile = File(...)):
-    ext = file.filename.split(".")[-1]
-    filename = f"{uuid.uuid4()}.{ext}"
+@router.post("/")
+async def upload_file(
+    file: UploadFile = File(...)
+):
 
-    path = os.path.join(UPLOAD_DIR, filename)
+    file_path = f"{UPLOAD_DIR}/{file.filename}"
 
-    with open(path, "wb") as buffer:
-        buffer.write(await file.read())
+    with open(file_path, "wb") as buffer:
+        content = await file.read()
+        buffer.write(content)
 
     return {
-        "url": f"/storage/{filename}"
+        "filename": file.filename,
+        "url": f"/uploads/{file.filename}"
     }
