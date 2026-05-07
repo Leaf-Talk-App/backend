@@ -15,6 +15,7 @@ from app.modules.uploads.router import router as uploads_router
 from app.modules.groups.router import router as groups_router
 from app.modules.scheduler.service import start_scheduler
 from fastapi.responses import FileResponse
+from app.modules.websocket.router import (router as websocket_router)
 
 app = FastAPI(title=settings.APP_NAME)
 app.include_router(auth_router)
@@ -32,6 +33,7 @@ app.include_router(ai_router)
 app.include_router(uploads_router)
 app.include_router(groups_router)
 app.mount("/storage", StaticFiles(directory="static"), name="static")
+app.include_router(websocket_router)
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():

@@ -71,6 +71,13 @@ async def send_message(current_user, data):
 async def delete_message(current_user, message_id):
     db = get_database()
 
+    message = await db.messages.find_one({
+        "_id": ObjectId(message_id)
+    })
+
+    if not message:
+        return {"error": "Message not found"}
+
     await db.messages.update_one(
         {
             "_id": ObjectId(message_id),
@@ -84,10 +91,25 @@ async def delete_message(current_user, message_id):
         }
     )
 
+    await manager.send_personal_message(
+        message["receiver_id"],
+        {
+            "type": "message_deleted",
+            "message_id": message_id
+        }
+    )
+
     return {"message": "deleted"}
 
 async def edit_message(current_user, message_id, content):
     db = get_database()
+
+    message = await db.messages.find_one({
+        "_id": ObjectId(message_id)
+    })
+
+    if not message:
+        return {"error": "Message not found"}
 
     await db.messages.update_one(
         {
@@ -99,6 +121,15 @@ async def edit_message(current_user, message_id, content):
                 "content": content,
                 "edited": True
             }
+        }
+    )
+
+    await manager.send_personal_message(
+        message["receiver_id"],
+        {
+            "type": "message_edited",
+            "message_id": message_id,
+            "content": content
         }
     )
 
@@ -127,23 +158,30 @@ async def mark_as_read(chat_id, user):
 async def get_messages(chat_id):
     db = get_database()
 
-    messages = await db.messages.find(
-        {
-            "chat_id": chat_id
-        }
-    ).sort("created_at", 1).to_list(200)
+    messages = await db.messages.find({
+        "chat_id": chat_id
+    }).sort(
+        "created_at",
+        1
+    ).to_list(200)
+
+    parsed = []
 
     for message in messages:
-        message["_id"] = str(message["_id"])
 
-        if "created_at" in message:
-            message["created_at"] = message[
+        parsed.append({
+            "_id": str(message["_id"]),
+            "chat_id": message["chat_id"],
+            "sender_id": message["sender_id"],
+            "receiver_id": message["receiver_id"],
+            "content": message["content"],
+            "status": message.get("status"),
+            "read": message.get("read"),
+            "edited": message.get("edited", False),
+            "deleted": message.get("deleted", False),
+            "created_at": message[
                 "created_at"
             ].isoformat()
+        })
 
-        if "read_at" in message:
-            message["read_at"] = message[
-                "read_at"
-            ].isoformat()
-
-    return messages
+    return parsed
