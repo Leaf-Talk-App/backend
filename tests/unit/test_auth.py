@@ -103,3 +103,17 @@ async def test_login_wrong_password(client):
     )
 
     assert response.status_code == 401
+    
+"""
+Os testes de autenticação têm como objetivo validar todo o fluxo de acesso e segurança da aplicação, 
+garantindo que apenas usuários autorizados consigam utilizar os recursos protegidos do sistema. 
+Durante os testes são verificadas funcionalidades essenciais como o registro de novos usuários, 
+assegurando que os dados sejam cadastrados corretamente no banco de dados, e o processo de login, 
+confirmando que usuários válidos consigam se autenticar utilizando suas credenciais. Também é realizada 
+a validação da geração e funcionamento do token JWT, utilizado para controlar sessões autenticadas e proteger 
+rotas privadas da aplicação. Além disso, os testes verificam cenários de erro importantes, como tentativa 
+de login com senha inválida, impedindo acessos não autorizados, e cadastro de e-mails duplicados, garantindo 
+a integridade e unicidade das contas cadastradas. Por fim, são testadas as proteções de rota da API, 
+confirmando que endpoints privados só possam ser acessados mediante autenticação válida.
+
+"""

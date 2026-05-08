@@ -10,9 +10,16 @@ async def get_me(user_data):
         {"password": 0}
     )
 
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
     user["_id"] = str(user["_id"])
 
     return user
+
 
 async def update_profile(user_data, data):
     db = get_database()
@@ -24,18 +31,18 @@ async def update_profile(user_data, data):
 
     return {"message": "Profile updated"}
 
+
 async def search_users(current_user, query):
     db = get_database()
 
-    # usuários que bloquearam o usuário atual
     blocked = await db.blocked_users.find({
         "blocked_user_id": current_user["sub"]
     }).to_list(100)
 
-    blocked_ids = [
-        ObjectId(x["user_id"])
-        for x in blocked
-    ]
+    blocked_ids = []
+
+    for x in blocked:
+        blocked_ids.append(str(x["user_id"]))
 
     users = await db.users.find(
         {
@@ -43,9 +50,6 @@ async def search_users(current_user, query):
             "name": {
                 "$regex": query,
                 "$options": "i"
-            },
-            "_id": {
-                "$nin": blocked_ids
             }
         },
         {
@@ -53,10 +57,19 @@ async def search_users(current_user, query):
         }
     ).to_list(20)
 
+    parsed = []
+
     for user in users:
+
+        if str(user["_id"]) in blocked_ids:
+            continue
+
         user["_id"] = str(user["_id"])
 
-    return users
+        parsed.append(user)
+
+    return parsed
+
 
 async def block_user(current_user, data):
     db = get_database()
@@ -101,11 +114,14 @@ async def list_blocked_users(current_user):
         "user_id": current_user["sub"]
     }).to_list(100)
 
-    ids = [x["blocked_user_id"] for x in blocked]
+    ids = [
+        x["blocked_user_id"]
+        for x in blocked
+    ]
 
     users = await db.users.find({
         "_id": {
-            "$in": [ObjectId(i) for i in ids]
+            "$in": ids
         }
     }).to_list(100)
 
@@ -119,6 +135,7 @@ async def list_blocked_users(current_user):
         })
 
     return result
+
 
 async def get_user_status(user_id):
     db = get_database()

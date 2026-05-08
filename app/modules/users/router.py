@@ -34,10 +34,7 @@ async def search(
     q: str,
     user=Depends(get_current_user)
 ):
-   return await search_users(
-        user,
-        q
-    )
+   return await search_users(user, q)
 
 @router.post("/block")
 async def block(
