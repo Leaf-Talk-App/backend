@@ -4,3 +4,5 @@ from app.core.config import settings
 def get_database():
     client = AsyncIOMotorClient(settings.MONGO_URL)
     return client[settings.DATABASE_NAME]
+
+db = get_database()
