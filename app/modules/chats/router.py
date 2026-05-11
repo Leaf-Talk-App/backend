@@ -10,18 +10,36 @@ from .service import (
     hide_chat
 )
 from .service import my_chats
+from datetime import datetime
+from app.core.database import db
+from app.modules.chats.serializers import serialize_chat
 
 router = APIRouter(
     prefix="/chats",
     tags=["Chats"]
 )
 
-@router.post("/create")
-async def new_chat(
+@router.post("/")
+async def create_chat(
     data: CreateChatSchema,
-    user=Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
-    return await create_chat(user, data)
+    members = list(set(data.user_ids + [current_user["id"]]))
+
+    chat = {
+        "members": members,
+        "is_group": data.is_group,
+        "name": data.name,
+        "created_at": datetime.utcnow(),
+        "last_message": None,
+        "last_message_at": None
+    }
+
+    result = await db.chats.insert_one(chat)
+
+    chat["_id"] = result.inserted_id
+
+    return serialize_chat(chat)
 
 @router.get("/")
 async def get_chats(

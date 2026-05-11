@@ -1,10 +1,12 @@
 from pydantic import BaseModel
+from typing import Optional
 
-class UpdateProfileSchema(BaseModel):
-    display_name: str | None = None
-    bio: str | None = None
-    avatar: str | None = None
-    searchable: bool | None = None
+class UpdateUserSchema(BaseModel):
+    name: Optional[str] = None
+    display_name: Optional[str] = None
+    bio: Optional[str] = None
+    avatar: Optional[str] = None
+    searchable: Optional[bool] = None
     
 class BlockUserSchema(BaseModel):
     user_id: str

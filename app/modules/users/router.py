@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from bson import ObjectId
 from app.dependencies import get_current_user
 from .schemas import UpdateProfileSchema
 from .service import (
@@ -12,6 +13,11 @@ from .service import (
     unblock_user,
     list_blocked_users
 )
+
+from app.core.database import db
+from app.modules.users.schemas import UpdateUserSchema
+from app.modules.users.serializers import serialize_user
+from app.utils.dependencies import get_current_user
 
 router = APIRouter(
     prefix="/users",
@@ -57,3 +63,21 @@ async def blocked(
     user=Depends(get_current_user)
 ):
     return await list_blocked_users(user)
+
+@router.patch("/me")
+async def update_me(
+    data: UpdateUserSchema,
+    current_user=Depends(get_current_user)
+):
+    update_data = data.dict(exclude_unset=True)
+
+    await db.users.update_one(
+        {"_id": ObjectId(current_user["id"])},
+        {"$set": update_data}
+    )
+
+    updated_user = await db.users.find_one(
+        {"_id": ObjectId(current_user["id"])}
+    )
+
+    return serialize_user(updated_user)
