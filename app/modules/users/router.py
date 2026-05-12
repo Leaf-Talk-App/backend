@@ -17,7 +17,6 @@ from .service import (
 from app.core.database import db
 from app.modules.users.schemas import UpdateUserSchema
 from app.modules.users.serializers import serialize_user
-from app.utils.dependencies import get_current_user
 
 router = APIRouter(
     prefix="/users",

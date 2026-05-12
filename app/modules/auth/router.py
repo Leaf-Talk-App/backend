@@ -19,7 +19,7 @@ async def register(data: RegisterSchema):
     user = await register_user(data)
 
     # Usando o ID real do usuário salvo no banco para gerar o token
-    token = create_access_token({"sub": str(user.id)})
+    token = create_access_token({"sub": str(user["id"])})
 
     verification_link = (
         f"{settings.FRONTEND_URL}"
@@ -31,11 +31,14 @@ async def register(data: RegisterSchema):
         verification_link
     )
 
-    send_email(
-        data.email,
-        "Verify your account",
-        html
-    )
+    try:
+        send_email(
+            data.email,
+            "Verify your account",
+            html
+        )
+    except Exception as e:
+        print(f"Aviso: Não foi possível enviar o e-mail de verificação. Erro: {e}")
 
     return user
 
