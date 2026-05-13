@@ -7,23 +7,3 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.10
-      - key: APP_NAME
-        value: Leaf Talk API
-      - key: JWT_ALGORITHM
-        value: HS256
-      - key: JWT_EXPIRE_MINUTES
-        value: 1440
-      - key: FRONTEND_URL
-        value: https://leaftalk.vercel.app
-      - key: MONGO_URL
-        sync: false
-      - key: DATABASE_NAME
-        sync: false
-      - key: JWT_SECRET
-        sync: false
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: RESEND_API_KEY
-        sync: false
-      - key: EMAIL_FROM
-        sync: false
