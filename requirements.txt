@@ -14,3 +14,4 @@ httpx
 websockets
 google-genai
 apscheduler
+python-multipart
