@@ -1,8 +1,10 @@
+import pytest
 from bson import ObjectId
 
-def test_complete_chat_flow(client):
+@pytest.mark.asyncio
+async def test_complete_chat_flow(client):
 
-    client.post(
+    await client.post(
         "/auth/register",
         json={
             "name": "Gustavo",
@@ -11,7 +13,7 @@ def test_complete_chat_flow(client):
         }
     )
 
-    login = client.post(
+    login = await client.post(
         "/auth/login",
         json={
             "email": "g@email.com",
@@ -29,7 +31,7 @@ def test_complete_chat_flow(client):
 
     chat_id = str(ObjectId())
 
-    response = client.post(
+    response = await client.post(
         "/messages/send",
         headers=headers,
         json={

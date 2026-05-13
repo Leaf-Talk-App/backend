@@ -1,8 +1,10 @@
+import pytest
 from app.core.security import create_access_token
 
-def test_get_me(client, db):
+@pytest.mark.asyncio
+async def test_get_me(client, db):
 
-    db.users.insert_one({
+    await db.users.insert_one({
         "_id": "123",
         "name": "User",
         "email": "user@email.com",
@@ -14,7 +16,7 @@ def test_get_me(client, db):
         "email": "user@email.com"
     })
 
-    response = client.get(
+    response = await client.get(
         "/users/me",
         headers={
             "Authorization": f"Bearer {token}"
@@ -27,9 +29,10 @@ def test_get_me(client, db):
 
     assert data["email"] == "user@email.com"
 
-def test_search_users(client, db):
+@pytest.mark.asyncio
+async def test_search_users(client, db):
 
-    db.users.insert_one({
+    await db.users.insert_one({
         "name": "Gustavo",
         "email": "g@email.com",
         "searchable": True
@@ -40,7 +43,7 @@ def test_search_users(client, db):
         "email": "a@a.com"
     })
 
-    response = client.get(
+    response = await client.get(
         "/users/search?q=Gus",
         headers={
             "Authorization": f"Bearer {token}"

@@ -1,10 +1,12 @@
 import io
+import pytest
 
-def test_upload_file(client):
+@pytest.mark.asyncio
+async def test_upload_file(client):
 
     file = io.BytesIO(b"conteudo teste")
 
-    response = client.post(
+    response = await client.post(
         "/upload/",
         files={
             "file": (

@@ -1,10 +1,11 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, status, Depends
 from .schemas import RegisterSchema, LoginSchema
 from .service import register_user, login_user
 from app.core.email import send_email
 from app.modules.auth.email_templates import verification_email_template
 from app.core.config import settings
 from app.core.security import create_access_token
+from app.core.database import get_database
 
 router = APIRouter(
     prefix="/auth",
@@ -15,11 +16,15 @@ router = APIRouter(
     "/register",
     status_code=status.HTTP_201_CREATED
 )
-async def register(data: RegisterSchema):
-    user = await register_user(data)
+async def register(
+    data: RegisterSchema,
+    db = Depends(get_database)
+):
+    user = await register_user(data, db)
 
-    # Usando o ID real do usuário salvo no banco para gerar o token
-    token = create_access_token({"sub": str(user["id"])})
+    token = create_access_token({
+        "sub": str(user["id"])
+    })
 
     verification_link = (
         f"{settings.FRONTEND_URL}"
@@ -38,10 +43,17 @@ async def register(data: RegisterSchema):
             html
         )
     except Exception as e:
-        print(f"Aviso: Não foi possível enviar o e-mail de verificação. Erro: {e}")
+        print(
+            "Aviso: Não foi possível enviar "
+            f"o e-mail de verificação. Erro: {e}"
+        )
 
     return user
 
+
 @router.post("/login")
-async def login(data: LoginSchema):
-    return await login_user(data)
+async def login(
+    data: LoginSchema,
+    db = Depends(get_database)
+):
+    return await login_user(data, db)

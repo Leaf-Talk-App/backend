@@ -1,3 +1,4 @@
+import pytest
 from app.core.security import create_access_token
 
 def headers():
@@ -11,10 +12,10 @@ def headers():
         "Authorization": f"Bearer {token}"
     }
 
+@pytest.mark.asyncio
+async def test_ai_chat(client):
 
-def test_ai_chat(client):
-
-    response = client.post(
+    response = await client.post(
         "/ai/chat",
         headers=headers(),
         json={

@@ -1,34 +1,39 @@
-import pytest
-import mongomock
-from fastapi.testclient import TestClient
+import pytest_asyncio
+from httpx import AsyncClient, ASGITransport
+from mongomock_motor import AsyncMongoMockClient
 from app.main import app
-from app.core.database import get_database
+import app.core.database as database_module
 
-mock_client = mongomock.MongoClient()
+mock_client = AsyncMongoMockClient()
 mock_db = mock_client["leaf_talk_test"]
 
-def override_get_database():
-    return mock_db
+database_module.db = mock_db
 
-app.dependency_overrides[get_database] = override_get_database
+@pytest_asyncio.fixture
+async def client():
 
-@pytest.fixture
+    transport = ASGITransport(app=app)
 
-def client():
-    return TestClient(app)
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test"
+    ) as client:
 
-@pytest.fixture
+        yield client
 
-def db():
-    return mock_db
 
-@pytest.fixture(autouse=True)
+@pytest_asyncio.fixture(autouse=True)
+async def clear_database():
 
-def clear_database():
-    collections = mock_db.list_collection_names()
+    collections = await mock_db.list_collection_names()
 
     for collection in collections:
-        mock_db[collection].delete_many({})
+        await mock_db[collection].delete_many({})
+
+
+@pytest_asyncio.fixture
+async def db():
+    return mock_db
         
 """
 O arquivo conftest.py é utilizado para centralizar configurações e recursos compartilhados entre os testes da aplicação, 

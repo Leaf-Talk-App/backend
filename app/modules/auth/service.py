@@ -8,9 +8,7 @@ from app.core.security import (
 from .models import build_user
 
 
-async def register_user(data):
-    db = get_database()
-
+async def register_user(data, db):
     user_exists = await db.users.find_one({
         "email": data.email
     })
@@ -33,9 +31,7 @@ async def register_user(data):
     }
 
 
-async def login_user(data):
-    db = get_database()
-
+async def login_user(data, db):
     user = await db.users.find_one({
         "email": data.email
     })
