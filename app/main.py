@@ -59,4 +59,5 @@ async def websocket_endpoint(
     
 @app.on_event("startup")
 async def startup():
+    pass
     # start_scheduler()
