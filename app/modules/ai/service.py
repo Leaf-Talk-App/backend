@@ -4,7 +4,6 @@ from google import genai
 from app.core.config import settings
 from app.core.database import get_database
 
-
 client = genai.Client(
     api_key=settings.GEMINI_API_KEY
 )
