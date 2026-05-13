@@ -16,6 +16,10 @@ from app.modules.groups.router import router as groups_router
 from app.modules.scheduler.service import start_scheduler
 from fastapi.responses import FileResponse
 from app.modules.websocket.router import (router as websocket_router)
+from app.core.database import (
+    connect_to_mongo,
+    close_mongo_connection
+)
 
 app = FastAPI(title=settings.APP_NAME)
 app.include_router(auth_router)
@@ -59,5 +63,9 @@ async def websocket_endpoint(
     
 @app.on_event("startup")
 async def startup():
-    pass
-    # start_scheduler()
+    await connect_to_mongo()
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await close_mongo_connection()
