@@ -26,3 +26,12 @@ class ForgotPasswordSchema(BaseModel):
 class ResetPasswordSchema(BaseModel):
     token: str
     password: str
+
+
+class GoogleCodeSchema(BaseModel):
+    code: str
+    redirect_uri: str
+
+
+class GoogleTokenSchema(BaseModel):
+    id_token: str

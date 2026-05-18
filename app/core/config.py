@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     EMAIL_PASSWORD: str
     FRONTEND_URL: str
     EMAIL_FROM: str
+    GOOGLE_CLIENT_ID: str | None = None
+    GOOGLE_CLIENT_SECRET: str | None = None
+    GOOGLE_REDIRECT_URI: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
