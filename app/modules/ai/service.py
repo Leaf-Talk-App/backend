@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+from bson import ObjectId
 from google import genai
 from app.core.config import settings
 from app.core.database import get_database
@@ -85,7 +86,49 @@ Mensagem:
     except:
         pass
 
+    # persist user message + reply in history
+    try:
+        await db.ai_conversations.insert_many([
+            {
+                "user_id": current_user["sub"],
+                "role": "user",
+                "content": prompt,
+                "created_at": datetime.utcnow()
+            },
+            {
+                "user_id": current_user["sub"],
+                "role": "assistant",
+                "content": text,
+                "created_at": datetime.utcnow()
+            }
+        ])
+    except Exception:
+        pass
+
     return {"reply": text}
+
+async def get_ai_history(current_user):
+    db = get_database()
+
+    messages = await db.ai_conversations.find(
+        {"user_id": current_user["sub"]}
+    ).sort("created_at", 1).to_list(200)
+
+    return [
+        {"role": m["role"], "content": m["content"]}
+        for m in messages
+    ]
+
+
+async def clear_ai_history(current_user):
+    db = get_database()
+
+    await db.ai_conversations.delete_many(
+        {"user_id": current_user["sub"]}
+    )
+
+    return {"message": "History cleared"}
+
 
 async def confirm_task(current_user, task_id):
     db = get_database()

@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends
 from app.dependencies import get_current_user
 from .schemas import AIMessageSchema
-from .service import ask_ai
-from .service import confirm_task
+from .service import ask_ai, confirm_task, get_ai_history, clear_ai_history
 
 router = APIRouter(
     prefix="/ai",
@@ -22,3 +21,15 @@ async def confirm(
     user=Depends(get_current_user)
 ):
     return await confirm_task(user, task_id)
+
+@router.get("/history")
+async def history(
+    user=Depends(get_current_user)
+):
+    return await get_ai_history(user)
+
+@router.post("/history/clear")
+async def clear_history(
+    user=Depends(get_current_user)
+):
+    return await clear_ai_history(user)
