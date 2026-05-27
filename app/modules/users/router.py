@@ -5,7 +5,8 @@ from .schemas import UpdateUserSchema
 from .service import (
     get_me,
     update_profile,
-    search_users
+    search_users,
+    get_user_by_id
 )
 from .schemas import BlockUserSchema
 from .service import (
@@ -36,10 +37,12 @@ async def profile(
 
 @router.get("/search")
 async def search(
-    q: str,
+    q: str = None,
+    query: str = None,
     user=Depends(get_current_user)
 ):
-   return await search_users(user, q)
+    term = q or query or ""
+    return await search_users(user, term)
 
 @router.post("/block")
 async def block(
@@ -80,3 +83,17 @@ async def update_me(
     )
 
     return serialize_user(updated_user)
+
+@router.put("/me")
+async def put_me(
+    data: UpdateUserSchema,
+    current_user=Depends(get_current_user)
+):
+    return await update_profile(current_user, data)
+
+@router.get("/{user_id}")
+async def get_user(
+    user_id: str,
+    user=Depends(get_current_user)
+):
+    return await get_user_by_id(user_id)

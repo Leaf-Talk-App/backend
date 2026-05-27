@@ -137,6 +137,23 @@ async def list_blocked_users(current_user):
     return result
 
 
+async def get_user_by_id(user_id: str):
+    db = get_database()
+
+    try:
+        oid = ObjectId(user_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+
+    user = await db.users.find_one({"_id": oid}, {"password": 0})
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user["_id"] = str(user["_id"])
+    return user
+
+
 async def get_user_status(user_id):
     db = get_database()
 
