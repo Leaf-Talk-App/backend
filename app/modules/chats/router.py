@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from app.dependencies import get_current_user
-from .schemas import CreateChatSchema
-from .service import create_chat, list_chats
+from .schemas import CreateChatSchema, CreateDirectChatSchema
+from .service import create_chat, list_chats, delete_chat
 from .schemas import ChatActionSchema
 from .service import (
     archive_chat,
@@ -19,8 +19,15 @@ router = APIRouter(
     tags=["Chats"]
 )
 
+@router.post("/create")
+async def create_direct_chat(
+    data: CreateDirectChatSchema,
+    current_user=Depends(get_current_user)
+):
+    return await create_chat(current_user, data)
+
 @router.post("/")
-async def create_chat(
+async def create_chat_group(
     data: CreateChatSchema,
     current_user=Depends(get_current_user)
 ):
@@ -83,3 +90,10 @@ async def my(
     user=Depends(get_current_user)
 ):
     return await my_chats(user)
+
+@router.delete("/{chat_id}")
+async def remove_chat(
+    chat_id: str,
+    user=Depends(get_current_user)
+):
+    return await delete_chat(user, chat_id)

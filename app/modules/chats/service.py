@@ -121,6 +121,21 @@ async def hide_chat(current_user, data):
 
     return {"message": "Chat hidden"}
 
+async def delete_chat(current_user, chat_id):
+    db = get_database()
+
+    await db.user_chat_settings.update_one(
+        {
+            "user_id": current_user["sub"],
+            "chat_id": chat_id
+        },
+        {"$set": {"deleted": True, "hidden": True}},
+        upsert=True
+    )
+
+    return {"message": "Chat deleted"}
+
+
 async def my_chats(current_user):
     db = get_database()
 
