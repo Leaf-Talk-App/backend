@@ -20,7 +20,6 @@ os.makedirs(
 async def upload_file(
     file: UploadFile = File(...)
 ):
-
     file_path = f"{UPLOAD_DIR}/{file.filename}"
 
     with open(file_path, "wb") as buffer:
@@ -29,5 +28,20 @@ async def upload_file(
 
     return {
         "filename": file.filename,
+        "url": f"/uploads/{file.filename}"
+    }
+
+
+@router.post("/file")
+async def upload_file_named(
+    file: UploadFile = File(...)
+):
+    file_path = f"{UPLOAD_DIR}/{file.filename}"
+
+    with open(file_path, "wb") as buffer:
+        content = await file.read()
+        buffer.write(content)
+
+    return {
         "url": f"/uploads/{file.filename}"
     }
