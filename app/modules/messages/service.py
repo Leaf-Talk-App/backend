@@ -46,6 +46,7 @@ async def send_message(current_user, data):
                 "updated_at": now,
                 "last_message": {
                     "content": data.content,
+                    "type": data.type,
                     "created_at": now,
                     "status": status
                 }
@@ -54,28 +55,38 @@ async def send_message(current_user, data):
     )
 
     ws_message = {
+        "type": "new_message",         # permite filtrar no frontend
         "_id": str(result.inserted_id),
         "chat_id": data.chat_id,
         "sender_id": current_user["sub"],
         "receiver_id": data.receiver_id,
-
         "content": data.content,
-
-        "type": data.type,
+        "type_msg": data.type,         # "text" | "file" | "audio"
         "file_url": data.file_url,
-
         "created_at": now.isoformat(),
-        "status": status
+        "status": status,
     }
 
-    await manager.send_personal_message(
-        data.receiver_id,
-        ws_message
-    )
+    # Notifica o destinatário em tempo-real
+    await manager.send_personal_message(data.receiver_id, ws_message)
+    # Notifica também o remetente (para multi-dispositivo / confirmação imediata)
+    await manager.send_personal_message(current_user["sub"], ws_message)
 
     return {
         "message": "sent",
-        "status": status
+        "status": status,
+        # retorna a mensagem completa para atualização otimista no frontend
+        "_id": str(result.inserted_id),
+        "chat_id": data.chat_id,
+        "sender_id": current_user["sub"],
+        "receiver_id": data.receiver_id,
+        "content": data.content,
+        "type": data.type,
+        "file_url": data.file_url,
+        "created_at": now.isoformat(),
+        "read": False,
+        "edited": False,
+        "deleted": False,
     }
 
 async def delete_message(current_user, message_id):
@@ -165,15 +176,12 @@ async def mark_as_read(chat_id, user):
 
     return {"message": "updated"}
 
-async def get_messages(chat_id):
+async def get_messages(chat_id: str, skip: int = 0, limit: int = 50):
     db = get_database()
 
     messages = await db.messages.find({
         "chat_id": chat_id
-    }).sort(
-        "created_at",
-        1
-    ).to_list(200)
+    }).sort("created_at", 1).skip(skip).to_list(limit)
 
     parsed = []
 

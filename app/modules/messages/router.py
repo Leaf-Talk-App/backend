@@ -30,9 +30,11 @@ async def send(
 @router.get("/{chat_id}")
 async def history(
     chat_id: str,
-    user=Depends(get_current_user)
+    skip: int = 0,
+    limit: int = 50,
+    user=Depends(get_current_user),
 ):
-    return await get_messages(chat_id)
+    return await get_messages(chat_id, skip=skip, limit=min(limit, 100))
 
 
 @router.patch("/read/{chat_id}")
