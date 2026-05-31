@@ -1,9 +1,71 @@
 services:
   - type: web
-    name: backend
+    name: leaftalk-backend
     env: python
+    region: oregon
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
     envVars:
       - key: PYTHON_VERSION
-        value: 3.10
+        value: "3.11"
+
+      # ── App ──────────────────────────────────────────────────────────────
+      - key: APP_NAME
+        value: Leaf Talk API
+
+      # ── MongoDB Atlas ─────────────────────────────────────────────────────
+      # OBRIGATÓRIO: definir no dashboard do Render > Environment
+      - key: MONGO_URL
+        sync: false
+      - key: DATABASE_NAME
+        value: leaf_talk
+
+      # ── JWT ───────────────────────────────────────────────────────────────
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: JWT_EXPIRE_MINUTES
+        value: "60"
+
+      # ── IA (Gemini) ───────────────────────────────────────────────────────
+      - key: GEMINI_API_KEY
+        sync: false
+
+      # ── E-mail (Gmail SMTP) ───────────────────────────────────────────────
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USERNAME
+        sync: false
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+
+      # ── CORS / Frontend ───────────────────────────────────────────────────
+      # FRONTEND_URL: URL pública do seu frontend em produção
+      - key: FRONTEND_URL
+        sync: false          # ex: https://leaftalk.onrender.com
+      # CORS_ORIGINS: origens adicionais separadas por vírgula (opcional)
+      - key: CORS_ORIGINS
+        value: ""
+
+      # ── Cloudinary (uploads persistentes) ────────────────────────────────
+      - key: CLOUDINARY_CLOUD_NAME
+        value: daljzkzdp
+      - key: CLOUDINARY_API_KEY
+        value: "863565417747239"
+      - key: CLOUDINARY_API_SECRET
+        sync: false   # definir no dashboard (valor: dSdtumQv5Lu4BH6E1fccfxiVRko)
+
+      # ── Google OAuth ──────────────────────────────────────────────────────
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false

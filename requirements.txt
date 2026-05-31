@@ -1,11 +1,11 @@
 fastapi
-uvicorn
+uvicorn[standard]
 motor
 pymongo
 python-dotenv
 pydantic
 pydantic-settings
-python-jose
+python-jose[cryptography]
 passlib[bcrypt]
 email-validator
 pytest
@@ -16,3 +16,5 @@ google-genai
 apscheduler
 python-multipart
 google-auth
+requests
+cloudinary

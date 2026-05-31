@@ -6,5 +6,9 @@ def build_user(data: dict):
         "email": data["email"],
         "password": data["password"],
         "verified": False,
+        "display_name": None,
+        "bio": None,
+        "avatar": None,
+        "searchable": True,
         "created_at": datetime.utcnow()
     }
