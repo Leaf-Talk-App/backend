@@ -142,7 +142,10 @@ async def my_chats(current_user):
     user_id = current_user["sub"]
 
     chats = await db.chats.find({
-        "members": user_id
+        "$or": [
+            {"participants": user_id},
+            {"members": user_id}
+        ]
     }).to_list(100)
 
     result = []
@@ -164,28 +167,43 @@ async def my_chats(current_user):
             "read": False
         })
 
+        updated_at = chat.get("updated_at")
+        # Normaliza para ISO string para evitar TypeError no sort (datetime vs str)
+        updated_at_iso = updated_at.isoformat() if updated_at else ""
+
+        # Serializa last_message (created_at pode ser datetime)
+        raw_lm = chat.get("last_message")
+        last_message = None
+        if raw_lm:
+            lm_created = raw_lm.get("created_at")
+            last_message = {
+                **{k: v for k, v in raw_lm.items() if k != "created_at"},
+                "created_at": lm_created.isoformat() if hasattr(lm_created, "isoformat") else lm_created,
+            }
+
         item = {
             "_id": chat_id,
-            "members": chat["members"],
-            "updated_at": chat.get("updated_at"),
-            "last_message": chat.get("last_message"),
+            "participants": chat.get("participants"),
+            "members": chat.get("members"),
+            "updated_at": updated_at_iso,
+            "last_message": last_message,
             "pinned": settings.get("pinned", False) if settings else False,
             "archived": settings.get("archived", False) if settings else False,
             "muted": settings.get("muted", False) if settings else False,
-            "unread_count": unread
+            "unread_count": unread,
         }
 
         result.append(item)
 
+    # Ordena: não arquivados primeiro, pinados antes, mais recentes primeiro
     result.sort(
         key=lambda x: (
-            x["archived"],
-            not x["pinned"],
-            x["updated_at"] or ""
+            x["archived"],         # False (0) antes de True (1)
+            not x["pinned"],       # pinados (False=0) antes dos não-pinados
+            x["updated_at"],       # ISO string — ordenável
         ),
-        reverse=False
+        reverse=False,
     )
-
-    result.reverse()
+    result.reverse()  # mais recentes no topo
 
     return result
