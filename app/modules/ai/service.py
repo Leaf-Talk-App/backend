@@ -1,7 +1,10 @@
 import json
+import os
 from datetime import datetime
 from bson import ObjectId
+import httpx
 from google import genai
+from google.genai import types
 from app.core.config import settings
 from app.core.database import get_database
 
@@ -10,52 +13,66 @@ client = genai.Client(
 )
 
 
-async def ask_ai(prompt: str, current_user):
+async def _fetch_attachment(url: str, mime: str | None):
+    """Lê os bytes de um anexo (Cloudinary http(s) ou /uploads local)."""
+    if not url:
+        return None, None
+
+    if url.startswith("http://") or url.startswith("https://"):
+        async with httpx.AsyncClient(timeout=20) as cx:
+            r = await cx.get(url)
+            r.raise_for_status()
+            ct = mime or r.headers.get("content-type", "application/octet-stream")
+            return r.content, ct.split(";")[0].strip()
+
+    # URL relativa local: /uploads/arquivo.ext
+    path = url.lstrip("/")
+    if os.path.exists(path):
+        with open(path, "rb") as f:
+            return f.read(), (mime or "application/octet-stream")
+
+    return None, None
+
+
+async def ask_ai(prompt: str, current_user, attachment_url: str = None, attachment_mime: str = None):
     db = get_database()
 
-    full_prompt = f"""
-Você é assistente do app Leaf Talk.
+    full_prompt = f"""Você é o Humberto, assistente de IA geral do Leaf Talk.
 
-Se identificar intenção, responda JSON.
+Você é um assistente de conversa geral (como um ChatGPT). Você NÃO tem acesso às
+conversas, mensagens, contatos, notificações, status de leitura nem a qualquer
+dado interno do app Leaf. Nunca afirme ter esse acesso e nunca invente esses dados.
 
-Tipos:
+O que você faz: ajuda a escrever e revisar textos e mensagens, dá ideias, explica
+assuntos, ajuda com produtividade, sugere temas de conversa e responde perguntas
+gerais. Se houver um anexo (imagem ou PDF), você pode analisá-lo.
 
-1 envio imediato
+Se o usuário pedir algo que dependa de dados do app (ex.: "resuma minhas
+conversas", "o que ainda não respondi"), explique com gentileza que você não tem
+acesso a essas informações, mas ofereça ajuda de outra forma.
 
-{{
- "action":"send_message",
- "to":"João",
- "content":"Oi"
-}}
+Responda sempre em português, de forma clara e útil.
 
-2 agendamento
-
-{{
- "action":"schedule_message",
- "to":"João",
- "time":"20:00",
- "content":"Oi"
-}}
-
-3 follow-up
-
-{{
- "action":"conditional_message",
- "to":"João",
- "condition":"no_reply",
- "timeout":"2h",
- "content":"Você viu minha mensagem?"
-}}
-
-Se não for comando, responda texto normal.
-
-Mensagem:
+Mensagem do usuário:
 {prompt}
 """
 
+    contents = [full_prompt]
+
+    # anexo opcional (imagem / PDF / áudio) — Gemini 2.5-flash é multimodal
+    if attachment_url:
+        try:
+            file_bytes, mime = await _fetch_attachment(attachment_url, attachment_mime)
+            if file_bytes:
+                contents.append(
+                    types.Part.from_bytes(data=file_bytes, mime_type=mime)
+                )
+        except Exception:
+            pass  # se falhar o anexo, segue só com o texto
+
     response = client.models.generate_content(
         model="gemini-2.5-flash",
-        contents=full_prompt
+        contents=contents,
     )
 
     text = response.text.strip()
@@ -93,6 +110,7 @@ Mensagem:
                 "user_id": current_user["sub"],
                 "role": "user",
                 "content": prompt,
+                "attachment_url": attachment_url,
                 "created_at": datetime.utcnow()
             },
             {
@@ -115,7 +133,11 @@ async def get_ai_history(current_user):
     ).sort("created_at", 1).to_list(200)
 
     return [
-        {"role": m["role"], "content": m["content"]}
+        {
+            "role": m["role"],
+            "content": m["content"],
+            "created_at": m["created_at"].isoformat() if m.get("created_at") else None,
+        }
         for m in messages
     ]
 

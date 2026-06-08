@@ -13,7 +13,12 @@ async def chat_ai(
     data: AIMessageSchema,
     user=Depends(get_current_user)
 ):
-    return await ask_ai(data.message, user)
+    return await ask_ai(
+        data.message,
+        user,
+        data.attachment_url,
+        data.attachment_mime,
+    )
 
 @router.post("/confirm/{task_id}")
 async def confirm(

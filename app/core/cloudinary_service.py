@@ -1,8 +1,11 @@
 """
 Serviço de upload via Cloudinary.
-Fallback para disco local se CLOUDINARY_URL não estiver configurado.
+Fallback para disco local se as credenciais não estiverem configuradas.
+
+IMPORTANTE: as credenciais vêm de `settings` (pydantic, carregado de .env),
+NÃO de os.environ. pydantic-settings lê o .env para o objeto Settings mas
+não exporta as variáveis para os.environ — por isso usamos settings.* aqui.
 """
-import os
 import uuid
 import cloudinary
 import cloudinary.uploader
@@ -16,25 +19,20 @@ def _ensure_configured():
     if _configured:
         return
 
-    cloudinary_url = os.environ.get("CLOUDINARY_URL", "")
-    if cloudinary_url:
+    if settings.CLOUDINARY_URL:
         # CLOUDINARY_URL=cloudinary://API_KEY:API_SECRET@CLOUD_NAME — configuração automática
-        cloudinary.config(cloudinary_url=cloudinary_url)
-    else:
-        # Configuração manual pelas variáveis individuais
-        cloud_name = os.environ.get("CLOUDINARY_CLOUD_NAME", "")
-        api_key = os.environ.get("CLOUDINARY_API_KEY", "")
-        api_secret = os.environ.get("CLOUDINARY_API_SECRET", "")
-        if cloud_name and api_key and api_secret:
-            cloudinary.config(
-                cloud_name=cloud_name,
-                api_key=api_key,
-                api_secret=api_secret,
-                secure=True,
-            )
-        else:
-            _configured = True  # sem Cloudinary — usa disco local
-            return
+        cloudinary.config(cloudinary_url=settings.CLOUDINARY_URL)
+    elif (
+        settings.CLOUDINARY_CLOUD_NAME
+        and settings.CLOUDINARY_API_KEY
+        and settings.CLOUDINARY_API_SECRET
+    ):
+        cloudinary.config(
+            cloud_name=settings.CLOUDINARY_CLOUD_NAME,
+            api_key=settings.CLOUDINARY_API_KEY,
+            api_secret=settings.CLOUDINARY_API_SECRET,
+            secure=True,
+        )
 
     _configured = True
 
@@ -42,11 +40,11 @@ def _ensure_configured():
 def is_cloudinary_enabled() -> bool:
     """True se Cloudinary está configurado."""
     return bool(
-        os.environ.get("CLOUDINARY_URL")
+        settings.CLOUDINARY_URL
         or (
-            os.environ.get("CLOUDINARY_CLOUD_NAME")
-            and os.environ.get("CLOUDINARY_API_KEY")
-            and os.environ.get("CLOUDINARY_API_SECRET")
+            settings.CLOUDINARY_CLOUD_NAME
+            and settings.CLOUDINARY_API_KEY
+            and settings.CLOUDINARY_API_SECRET
         )
     )
 
@@ -64,7 +62,9 @@ def upload_bytes(
     """
     _ensure_configured()
 
-    pid = public_id or f"{folder}/{uuid.uuid4().hex}"
+    # public_id NÃO deve incluir o folder — o Cloudinary o prefixa via `folder=`.
+    # Antes gerava `leaf/images/leaf/images/<hex>` (folder duplicado).
+    pid = public_id or uuid.uuid4().hex
 
     result = cloudinary.uploader.upload(
         content,
@@ -88,6 +88,6 @@ def upload_bytes_raw(content: bytes, *, folder: str = "leaf/audio") -> str:
         content,
         folder=folder,
         resource_type="raw",
-        public_id=f"{folder}/{uuid.uuid4().hex}",
+        public_id=uuid.uuid4().hex,
     )
     return result["secure_url"]

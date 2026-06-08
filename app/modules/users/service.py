@@ -1,4 +1,6 @@
+import re
 from app.core.database import get_database
+from app.core.websocket import manager
 from bson import ObjectId
 from fastapi import HTTPException
 
@@ -7,7 +9,13 @@ async def get_me(user_data):
 
     user = await db.users.find_one(
         {"email": user_data["email"]},
-        {"password": 0}
+        {
+            "password": 0,
+            "verification_code": 0,
+            "verification_code_expires_at": 0,
+            "reset_token": 0,
+            "reset_token_expires_at": 0,
+        },
     )
 
     if not user:
@@ -17,6 +25,7 @@ async def get_me(user_data):
         )
 
     user["_id"] = str(user["_id"])
+    user["id"] = user["_id"]
 
     return user
 
@@ -24,9 +33,14 @@ async def get_me(user_data):
 async def update_profile(user_data, data):
     db = get_database()
 
+    payload = data.model_dump(exclude_none=True)
+    # phone_normalized = só dígitos → permite login por telefone (lookup exato).
+    if "phone" in payload:
+        payload["phone_normalized"] = re.sub(r"\D", "", payload["phone"]) or None
+
     await db.users.update_one(
         {"email": user_data["email"]},
-        {"$set": data.model_dump(exclude_none=True)}
+        {"$set": payload},
     )
 
     return {"message": "Profile updated"}
@@ -35,27 +49,43 @@ async def update_profile(user_data, data):
 async def search_users(current_user, query):
     db = get_database()
 
+    term = (query or "").strip()
+    # termos muito curtos geram ruído (1 letra casa quase todo mundo)
+    if len(term) < 2:
+        return []
+
     blocked = await db.blocked_users.find({
         "blocked_user_id": current_user["sub"]
     }).to_list(100)
 
-    blocked_ids = []
+    blocked_ids = [str(x["user_id"]) for x in blocked]
 
-    for x in blocked:
-        blocked_ids.append(str(x["user_id"]))
+    esc = re.escape(term)
+    # name/display_name: casa INÍCIO DE PALAVRA (começo do campo ou após espaço).
+    # Ex.: "va" acha "Vanessa", mas NÃO "Silva"/"Evangelista" (substring no meio).
+    name_regex = {"$regex": rf"(^|\s){esc}", "$options": "i"}
+    # email: casa só o INÍCIO do endereço (parte local) — sem ruído de domínio
+    # nem substring no meio. Ex.: "va" acha "vasela@...", não "pedro.evangelista@".
+    email_regex = {"$regex": rf"^{esc}", "$options": "i"}
 
-    users = await db.users.find(
-        {
-            "searchable": True,
-            "name": {
-                "$regex": query,
-                "$options": "i"
-            }
-        },
-        {
-            "password": 0
-        }
-    ).to_list(20)
+    filters = {
+        # inclui usuários com searchable=True OU sem o campo (legados).
+        # apenas searchable=False fica de fora.
+        "searchable": {"$ne": False},
+        "$or": [
+            {"name": name_regex},
+            {"display_name": name_regex},
+            {"email": email_regex},
+        ],
+    }
+
+    # não retorna o próprio usuário nos resultados
+    try:
+        filters["_id"] = {"$ne": ObjectId(current_user["sub"])}
+    except Exception:
+        pass
+
+    users = await db.users.find(filters, {"password": 0}).to_list(20)
 
     parsed = []
 
@@ -65,6 +95,7 @@ async def search_users(current_user, query):
             continue
 
         user["_id"] = str(user["_id"])
+        user["online"] = manager.is_online(user["_id"])
 
         parsed.append(user)
 
@@ -151,6 +182,8 @@ async def get_user_by_id(user_id: str):
         raise HTTPException(status_code=404, detail="User not found")
 
     user["_id"] = str(user["_id"])
+    # verdade = conexões ativas em memória (flag do banco pode ficar presa em True)
+    user["online"] = manager.is_online(user["_id"])
     return user
 
 

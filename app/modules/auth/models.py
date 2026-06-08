@@ -9,6 +9,9 @@ def build_user(data: dict):
         "display_name": None,
         "bio": None,
         "avatar": None,
+        "phone": None,
+        "phone_normalized": None,
+        "phone_verified": False,
         "searchable": True,
         "created_at": datetime.utcnow()
     }

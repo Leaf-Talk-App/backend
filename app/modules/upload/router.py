@@ -94,7 +94,7 @@ async def upload_avatar(
     file: UploadFile = File(...),
     _user=Depends(get_current_user),
 ):
-    content_type = file.content_type or ""
+    content_type = (file.content_type or "").split(";")[0].strip().lower()
     if content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(
             status_code=415,
@@ -117,7 +117,7 @@ async def upload_chat_image(
     file: UploadFile = File(...),
     _user=Depends(get_current_user),
 ):
-    content_type = file.content_type or ""
+    content_type = (file.content_type or "").split(";")[0].strip().lower()
     if content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(
             status_code=415,
@@ -134,7 +134,9 @@ async def upload_chat_audio(
     file: UploadFile = File(...),
     _user=Depends(get_current_user),
 ):
-    content_type = file.content_type or ""
+    # MediaRecorder envia "audio/webm;codecs=opus" — remover parâmetros
+    # antes de comparar, senão nunca casa com "audio/webm".
+    content_type = (file.content_type or "").split(";")[0].strip().lower()
     if content_type not in ALLOWED_AUDIO_TYPES:
         raise HTTPException(
             status_code=415,

@@ -10,7 +10,8 @@ from .service import (
     get_messages,
     mark_as_read,
     edit_message,
-    delete_message
+    delete_message,
+    clear_chat
 )
 
 router = APIRouter(
@@ -34,7 +35,15 @@ async def history(
     limit: int = 50,
     user=Depends(get_current_user),
 ):
-    return await get_messages(chat_id, skip=skip, limit=min(limit, 100))
+    return await get_messages(chat_id, skip=skip, limit=min(limit, 100), user_id=user["sub"])
+
+
+@router.post("/clear/{chat_id}")
+async def clear(
+    chat_id: str,
+    user=Depends(get_current_user),
+):
+    return await clear_chat(chat_id, user)
 
 
 @router.patch("/read/{chat_id}")

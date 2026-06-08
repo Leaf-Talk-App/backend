@@ -1,7 +1,22 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 from app.core.database import get_database
 from app.core.websocket import manager
+
+
+def _iso_utc(dt):
+    """Serializa datetime como ISO UTC com offset.
+
+    Os timestamps são gravados como UTC *naïve* (datetime.utcnow legado / agora
+    aware). Sem o marcador de fuso, JS `new Date(str)` interpreta como hora
+    LOCAL — deslocando o horário exibido. Forçamos +00:00 para o cliente parsear
+    como UTC e exibir no fuso do dispositivo via toLocaleTimeString.
+    """
+    if not dt:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).isoformat()
 
 async def send_message(current_user, data):
     db = get_database()
@@ -14,7 +29,7 @@ async def send_message(current_user, data):
     if blocked:
         return {"error": "You are blocked"}
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     status = (
         "delivered"
@@ -34,6 +49,7 @@ async def send_message(current_user, data):
 
         "status": status,
         "read": False,
+        "read_by": [],
         "created_at": now
     }
 
@@ -159,7 +175,7 @@ async def edit_message(current_user, message_id, content):
 async def mark_as_read(chat_id, user):
     db = get_database()
 
-    await db.messages.update_many(
+    result = await db.messages.update_many(
         {
             "chat_id": chat_id,
             "receiver_id": user["sub"],
@@ -169,19 +185,64 @@ async def mark_as_read(chat_id, user):
             "$set": {
                 "read": True,
                 "status": "read",
-                "read_at": datetime.utcnow()
-            }
+                "read_at": datetime.now(timezone.utc)
+            },
+            # read_by: lista de quem leu (pronto p/ grupos)
+            "$addToSet": {"read_by": user["sub"]}
         }
     )
 
+    # Avisa o(s) remetente(s) p/ atualizar os ticks → ✓✓ verde (lida) em tempo real
+    if result.modified_count:
+        try:
+            chat = await db.chats.find_one({"_id": ObjectId(chat_id)})
+        except Exception:
+            chat = None
+        if chat:
+            others = [
+                p
+                for p in (chat.get("participants") or chat.get("members") or [])
+                if p != user["sub"]
+            ]
+            for sender_id in others:
+                await manager.send_personal_message(
+                    sender_id,
+                    {
+                        "type": "messages_read",
+                        "chat_id": chat_id,
+                        "reader_id": user["sub"],
+                    },
+                )
+
     return {"message": "updated"}
 
-async def get_messages(chat_id: str, skip: int = 0, limit: int = 50):
+async def clear_chat(chat_id, user):
+    """Limpa a conversa SÓ para o usuário atual (soft): marca cleared_at;
+    get_messages passa a filtrar mensagens anteriores a esse instante."""
+    db = get_database()
+    await db.user_chat_settings.update_one(
+        {"user_id": user["sub"], "chat_id": chat_id},
+        {"$set": {"cleared_at": datetime.now(timezone.utc)}},
+        upsert=True,
+    )
+    return {"message": "cleared"}
+
+
+async def get_messages(chat_id: str, skip: int = 0, limit: int = 50, user_id: str | None = None):
     db = get_database()
 
-    messages = await db.messages.find({
-        "chat_id": chat_id
-    }).sort("created_at", 1).skip(skip).to_list(limit)
+    query = {"chat_id": chat_id}
+
+    # filtro de "limpar conversa" (per-user): só mensagens após cleared_at
+    if user_id:
+        settings = await db.user_chat_settings.find_one(
+            {"user_id": user_id, "chat_id": chat_id}
+        )
+        cleared_at = settings.get("cleared_at") if settings else None
+        if cleared_at:
+            query["created_at"] = {"$gt": cleared_at}
+
+    messages = await db.messages.find(query).sort("created_at", 1).skip(skip).to_list(limit)
 
     parsed = []
 
@@ -197,11 +258,10 @@ async def get_messages(chat_id: str, skip: int = 0, limit: int = 50):
             "file_url": message.get("file_url"),
             "status": message.get("status"),
             "read": message.get("read"),
+            "read_by": message.get("read_by", []),
             "edited": message.get("edited", False),
             "deleted": message.get("deleted", False),
-            "created_at": message[
-                "created_at"
-            ].isoformat()
+            "created_at": _iso_utc(message.get("created_at")),
         })
 
     return parsed

@@ -48,6 +48,11 @@ async def websocket_endpoint(
                     }
                 )
 
+            # heartbeat (ping a cada ~30s) — mantém a conexão viva
+            elif event_type == "ping":
+
+                await manager.heartbeat(user_id)
+
     except WebSocketDisconnect:
 
         await manager.disconnect(user_id)

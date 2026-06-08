@@ -60,6 +60,8 @@ async def register_user(data, db):
 
 
 async def login_user(data, db):
+    # Login só por e-mail (+ Google OAuth em endpoint separado).
+    # username NÃO é usado: pode haver nomes de usuário duplicados.
     user = await db.users.find_one({"email": data.email})
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -165,6 +167,12 @@ async def exchange_google_code(code: str, redirect_uri: str):
             message = google_error.get("error_description") or google_error.get("error")
         except Exception:
             message = token_response.text
+        # Log do erro exato do Google p/ diagnóstico (redirect_uri_mismatch,
+        # invalid_client, invalid_grant, etc) — inclui o redirect_uri usado.
+        print(
+            f"[GOOGLE OAUTH] exchange falhou status={token_response.status_code} "
+            f"redirect_uri={redirect_uri!r} erro={message!r}"
+        )
         raise HTTPException(
             status_code=400,
             detail=message or "Failed to exchange Google authorization code",
@@ -180,9 +188,11 @@ async def exchange_google_code(code: str, redirect_uri: str):
             id_token_str,
             google_requests.Request(),
             settings.GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=10,
         )
     except Exception as exc:
-        raise HTTPException(status_code=400, detail="Invalid Google token") from exc
+        print(f"[GOOGLE OAUTH] verify_oauth2_token falhou: {type(exc).__name__}: {exc}")
+        raise HTTPException(status_code=400, detail=f"Invalid Google token: {exc}") from exc
 
     email = google_user.get("email")
     name = google_user.get("name") or "Usuário Google"
@@ -228,9 +238,11 @@ def verify_google_id_token(id_token_str: str):
             id_token_str,
             google_requests.Request(),
             settings.GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=10,
         )
     except Exception as exc:
-        raise HTTPException(status_code=400, detail="Invalid Google token") from exc
+        print(f"[GOOGLE OAUTH] verify_oauth2_token falhou: {type(exc).__name__}: {exc}")
+        raise HTTPException(status_code=400, detail=f"Invalid Google token: {exc}") from exc
 
     email = google_user.get("email")
     name = google_user.get("name") or "Usuário Google"

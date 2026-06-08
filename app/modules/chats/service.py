@@ -87,6 +87,12 @@ async def pin_chat(current_user, data):
 async def mute_chat(current_user, data):
     db = get_database()
 
+    existing = await db.user_chat_settings.find_one({
+        "user_id": current_user["sub"],
+        "chat_id": data.chat_id,
+    })
+    new_val = not (existing.get("muted", False) if existing else False)
+
     await db.user_chat_settings.update_one(
         {
             "user_id": current_user["sub"],
@@ -94,13 +100,13 @@ async def mute_chat(current_user, data):
         },
         {
             "$set": {
-                "muted": True
+                "muted": new_val
             }
         },
         upsert=True
     )
 
-    return {"message": "Chat muted"}
+    return {"message": "Chat muted" if new_val else "Chat unmuted", "muted": new_val}
 
 
 async def hide_chat(current_user, data):
