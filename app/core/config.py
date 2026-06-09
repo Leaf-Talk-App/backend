@@ -16,17 +16,9 @@ class Settings(BaseSettings):
 
     EMAIL_HOST: str = "smtp.gmail.com"
     EMAIL_PORT: int = 587
-    EMAIL_USERNAME: str = ""
+    EMAIL_USER: str = ""
     EMAIL_PASSWORD: str = ""
     FRONTEND_URL: str = "http://localhost:5173"
-    EMAIL_FROM: str = ""
-
-    # MailerSend (HTTP) — Render free bloqueia SMTP de saída; e-mail vai por HTTPS.
-    # No trial o MailerSend entrega para QUALQUER e-mail (diferente do Resend).
-    # Se MAILERSEND_API_KEY existir, é o método primário (SMTP só fallback local).
-    MAILERSEND_API_KEY: str = ""
-    MAILERSEND_FROM_EMAIL: str = ""
-    MAILERSEND_FROM_NAME: str = "Leaf Talk"
 
     GOOGLE_CLIENT_ID: str | None = None
     GOOGLE_CLIENT_SECRET: str | None = None
