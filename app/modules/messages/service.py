@@ -178,9 +178,12 @@ async def mark_as_read(chat_id, user):
     # Privacidade: se o leitor desativou as confirmações, não revela a leitura
     # (sem status "read"/read_by/broadcast). O campo "read" ainda é setado para
     # zerar o contador de não-lidas DO PRÓPRIO leitor.
-    reader = await db.users.find_one(
-        {"_id": ObjectId(user["sub"])}, {"show_read_receipts": 1}
-    )
+    try:
+        reader = await db.users.find_one(
+            {"_id": ObjectId(user["sub"])}, {"show_read_receipts": 1}
+        )
+    except Exception:
+        reader = None
     reveal = (reader or {}).get("show_read_receipts", True)
 
     set_fields = {"read": True}

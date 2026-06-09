@@ -69,6 +69,11 @@ async def login_user(data, db):
     if not verify_password(data.password, user["password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
+    # BUG-1: bloqueia login enquanto o e-mail não foi verificado.
+    # (contas Google já entram verificadas.)
+    if not user.get("verified", False):
+        raise HTTPException(status_code=403, detail="EMAIL_NOT_VERIFIED")
+
     token = create_access_token({"sub": str(user["_id"]), "email": user["email"]})
     return {"access_token": token, "token_type": "bearer"}
 

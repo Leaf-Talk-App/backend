@@ -50,9 +50,6 @@ async def search_users(current_user, query):
     db = get_database()
 
     term = (query or "").strip()
-    # termos muito curtos geram ruído (1 letra casa quase todo mundo)
-    if len(term) < 2:
-        return []
 
     blocked = await db.blocked_users.find({
         "blocked_user_id": current_user["sub"]
@@ -60,32 +57,24 @@ async def search_users(current_user, query):
 
     blocked_ids = [str(x["user_id"]) for x in blocked]
 
-    esc = re.escape(term)
-    # name/display_name: casa INÍCIO DE PALAVRA (começo do campo ou após espaço).
-    # Ex.: "va" acha "Vanessa", mas NÃO "Silva"/"Evangelista" (substring no meio).
-    name_regex = {"$regex": rf"(^|\s){esc}", "$options": "i"}
-    # email: casa só o INÍCIO do endereço (parte local) — sem ruído de domínio
-    # nem substring no meio. Ex.: "va" acha "vasela@...", não "pedro.evangelista@".
-    email_regex = {"$regex": rf"^{esc}", "$options": "i"}
+    # inclui searchable=True OU sem o campo (legados); só searchable=False fica de fora.
+    filters = {"searchable": {"$ne": False}}
 
-    filters = {
-        # inclui usuários com searchable=True OU sem o campo (legados).
-        # apenas searchable=False fica de fora.
-        "searchable": {"$ne": False},
-        "$or": [
+    if term:
+        esc = re.escape(term)
+        # name/display_name: início de palavra (começo do campo ou após espaço)
+        name_regex = {"$regex": rf"(^|\s){esc}", "$options": "i"}
+        # email: só o início do endereço (parte local) — sem ruído de domínio
+        email_regex = {"$regex": rf"^{esc}", "$options": "i"}
+        filters["$or"] = [
             {"name": name_regex},
             {"display_name": name_regex},
             {"email": email_regex},
-        ],
-    }
+        ]
+    # BUG-12: termo vazio → retorna todos (limitado a 50).
+    # BUG-9: NÃO exclui o próprio usuário (permite mandar mensagem para si mesmo).
 
-    # não retorna o próprio usuário nos resultados
-    try:
-        filters["_id"] = {"$ne": ObjectId(current_user["sub"])}
-    except Exception:
-        pass
-
-    users = await db.users.find(filters, {"password": 0}).to_list(20)
+    users = await db.users.find(filters, {"password": 0}).to_list(50)
 
     parsed = []
 
