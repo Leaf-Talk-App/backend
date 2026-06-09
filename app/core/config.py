@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:5173"
     EMAIL_FROM: str = ""
 
+    # Resend (HTTP) — Render free bloqueia SMTP de saída; e-mail vai por HTTPS.
+    # Se RESEND_API_KEY existir, é o método primário (SMTP só fallback local).
+    RESEND_API_KEY: str = ""
+    RESEND_FROM: str = "Leaf Talk <onboarding@resend.dev>"
+
     GOOGLE_CLIENT_ID: str | None = None
     GOOGLE_CLIENT_SECRET: str | None = None
     GOOGLE_REDIRECT_URI: str | None = None

@@ -2,44 +2,58 @@ import smtplib
 import ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import httpx
 from app.core.config import settings
 
 
-def _build_message(to_email: str, subject: str, html: str) -> MIMEMultipart:
+def _send_via_resend(to_email: str, subject: str, html: str) -> bool:
+    """Envia via API HTTP do Resend. Funciona no Render free (HTTPS), onde o
+    SMTP de saída é bloqueado. Retorna True se aceito."""
+    resp = httpx.post(
+        "https://api.resend.com/emails",
+        headers={"Authorization": f"Bearer {settings.RESEND_API_KEY}"},
+        json={
+            "from": settings.RESEND_FROM,
+            "to": [to_email],
+            "subject": subject,
+            "html": html,
+        },
+        timeout=15,
+    )
+    if resp.status_code >= 400:
+        print(f"[EMAIL] Resend falhou {resp.status_code}: {resp.text}")
+        return False
+    print(f"[EMAIL] Resend ok -> {to_email}")
+    return True
+
+
+def _send_via_smtp(to_email: str, subject: str, html: str) -> None:
+    """Fallback SMTP (uso local/dev — no Render free a porta é bloqueada)."""
+    sender = settings.EMAIL_FROM or settings.EMAIL_USERNAME
     message = MIMEMultipart("alternative")
     message["Subject"] = subject
-    message["From"] = settings.EMAIL_FROM or settings.EMAIL_USERNAME
+    message["From"] = sender
     message["To"] = to_email
     message.attach(MIMEText(html, "html", "utf-8"))
-    return message
+    with smtplib.SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT, timeout=15) as server:
+        server.ehlo()
+        server.starttls(context=ssl.create_default_context())
+        server.login(settings.EMAIL_USERNAME, settings.EMAIL_PASSWORD)
+        server.sendmail(sender, [to_email], message.as_string())
+    print(f"[EMAIL] SMTP ok -> {to_email}")
 
 
 def send_email(to_email: str, subject: str, html: str) -> None:
-    """Envia via SMTP do Gmail. Tenta 587 (STARTTLS) e, se falhar, 465 (SSL).
-    Loga o resultado/erro para diagnóstico nos logs do Render."""
-    sender = settings.EMAIL_FROM or settings.EMAIL_USERNAME
-    message = _build_message(to_email, subject, html)
-    context = ssl.create_default_context()
-
-    # 1) Porta 587 + STARTTLS (padrão do Gmail)
+    """Resend (HTTP) se houver key; senão SMTP. Loga o resultado p/ diagnóstico."""
     try:
-        with smtplib.SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT, timeout=20) as server:
-            server.ehlo()
-            server.starttls(context=context)
-            server.ehlo()
-            server.login(settings.EMAIL_USERNAME, settings.EMAIL_PASSWORD)
-            server.sendmail(sender, [to_email], message.as_string())
-        print(f"[EMAIL] enviado via 587 -> {to_email}")
-        return
+        if settings.RESEND_API_KEY:
+            if _send_via_resend(to_email, subject, html):
+                return
+            # Resend falhou — tenta SMTP só se houver credenciais (local)
+            if settings.EMAIL_USERNAME and settings.EMAIL_PASSWORD:
+                _send_via_smtp(to_email, subject, html)
+            return
+        _send_via_smtp(to_email, subject, html)
     except Exception as exc:
-        print(f"[EMAIL] 587 falhou: {type(exc).__name__}: {exc}")
-
-    # 2) Fallback porta 465 + SSL (caso 587 esteja bloqueada)
-    try:
-        with smtplib.SMTP_SSL(settings.EMAIL_HOST, 465, timeout=20, context=context) as server:
-            server.login(settings.EMAIL_USERNAME, settings.EMAIL_PASSWORD)
-            server.sendmail(sender, [to_email], message.as_string())
-        print(f"[EMAIL] enviado via 465 -> {to_email}")
-    except Exception as exc:
-        print(f"[EMAIL] 465 falhou: {type(exc).__name__}: {exc}")
+        print(f"[EMAIL] envio falhou para {to_email}: {type(exc).__name__}: {exc}")
         raise
