@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import WebSocket
 from bson import ObjectId
 from app.core.database import get_database
@@ -32,7 +32,7 @@ class ConnectionManager:
         self.active_connections.pop(user_id, None)
 
         db = get_database()
-        last_seen = datetime.utcnow()
+        last_seen = datetime.now(timezone.utc)
         try:
             await db.users.update_one(
                 {"_id": ObjectId(user_id)},
@@ -54,7 +54,7 @@ class ConnectionManager:
         try:
             await db.users.update_one(
                 {"_id": ObjectId(user_id)},
-                {"$set": {"online": True, "last_seen": datetime.utcnow()}},
+                {"$set": {"online": True, "last_seen": datetime.now(timezone.utc)}},
             )
         except Exception:
             pass
