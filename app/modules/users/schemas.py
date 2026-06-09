@@ -13,6 +13,8 @@ class UpdateUserSchema(BaseModel):
     # Implicaria um endpoint extra (enviar código / confirmar) — não feito aqui.
     phone: Optional[str] = None
     searchable: Optional[bool] = None
+    # confirmações de leitura (ticks verdes). Se False, não revela leitura a terceiros.
+    show_read_receipts: Optional[bool] = None
     
 class BlockUserSchema(BaseModel):
     user_id: str

@@ -8,5 +8,6 @@ def serialize_user(user):
         "avatar": user.get("avatar"),
         "phone": user.get("phone"),
         "phone_verified": user.get("phone_verified", False),
-        "searchable": user.get("searchable", True)
+        "searchable": user.get("searchable", True),
+        "show_read_receipts": user.get("show_read_receipts", True)
     }

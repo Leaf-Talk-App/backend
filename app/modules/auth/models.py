@@ -13,5 +13,6 @@ def build_user(data: dict):
         "phone_normalized": None,
         "phone_verified": False,
         "searchable": True,
+        "show_read_receipts": True,
         "created_at": datetime.utcnow()
     }

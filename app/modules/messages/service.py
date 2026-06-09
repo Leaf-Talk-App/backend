@@ -175,25 +175,32 @@ async def edit_message(current_user, message_id, content):
 async def mark_as_read(chat_id, user):
     db = get_database()
 
+    # Privacidade: se o leitor desativou as confirmações, não revela a leitura
+    # (sem status "read"/read_by/broadcast). O campo "read" ainda é setado para
+    # zerar o contador de não-lidas DO PRÓPRIO leitor.
+    reader = await db.users.find_one(
+        {"_id": ObjectId(user["sub"])}, {"show_read_receipts": 1}
+    )
+    reveal = (reader or {}).get("show_read_receipts", True)
+
+    set_fields = {"read": True}
+    update = {"$set": set_fields}
+    if reveal:
+        set_fields["status"] = "read"
+        set_fields["read_at"] = datetime.now(timezone.utc)
+        update["$addToSet"] = {"read_by": user["sub"]}
+
     result = await db.messages.update_many(
         {
             "chat_id": chat_id,
             "receiver_id": user["sub"],
             "read": False
         },
-        {
-            "$set": {
-                "read": True,
-                "status": "read",
-                "read_at": datetime.now(timezone.utc)
-            },
-            # read_by: lista de quem leu (pronto p/ grupos)
-            "$addToSet": {"read_by": user["sub"]}
-        }
+        update,
     )
 
-    # Avisa o(s) remetente(s) p/ atualizar os ticks → ✓✓ verde (lida) em tempo real
-    if result.modified_count:
+    # Avisa o(s) remetente(s) p/ atualizar os ticks → ✓✓ verde — só se revela
+    if reveal and result.modified_count:
         try:
             chat = await db.chats.find_one({"_id": ObjectId(chat_id)})
         except Exception:
