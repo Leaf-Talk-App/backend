@@ -6,24 +6,31 @@ import httpx
 from app.core.config import settings
 
 
-def _send_via_resend(to_email: str, subject: str, html: str) -> bool:
-    """Envia via API HTTP do Resend. Funciona no Render free (HTTPS), onde o
-    SMTP de saída é bloqueado. Retorna True se aceito."""
+def _send_via_mailersend(to_email: str, subject: str, html: str) -> bool:
+    """Envia via API HTTP do MailerSend. Funciona no Render free (HTTPS), onde o
+    SMTP de saída é bloqueado. No trial entrega para qualquer e-mail. True se aceito."""
     resp = httpx.post(
-        "https://api.resend.com/emails",
-        headers={"Authorization": f"Bearer {settings.RESEND_API_KEY}"},
+        "https://api.mailersend.com/v1/email",
+        headers={
+            "Authorization": f"Bearer {settings.MAILERSEND_API_KEY}",
+            "Content-Type": "application/json",
+        },
         json={
-            "from": settings.RESEND_FROM,
-            "to": [to_email],
+            "from": {
+                "email": settings.MAILERSEND_FROM_EMAIL,
+                "name": settings.MAILERSEND_FROM_NAME,
+            },
+            "to": [{"email": to_email}],
             "subject": subject,
             "html": html,
         },
         timeout=15,
     )
+    # MailerSend retorna 202 (Accepted) no sucesso
     if resp.status_code >= 400:
-        print(f"[EMAIL] Resend falhou {resp.status_code}: {resp.text}")
+        print(f"[EMAIL] ERRO: MailerSend {resp.status_code}: {resp.text}")
         return False
-    print(f"[EMAIL] Resend ok -> {to_email}")
+    print(f"[EMAIL] MailerSend ok -> {to_email}")
     return True
 
 
@@ -44,16 +51,15 @@ def _send_via_smtp(to_email: str, subject: str, html: str) -> None:
 
 
 def send_email(to_email: str, subject: str, html: str) -> None:
-    """Resend (HTTP) se houver key; senão SMTP. Loga o resultado p/ diagnóstico."""
+    """MailerSend (HTTP) se houver key; senão SMTP. Loga sucesso/erro p/ diagnóstico."""
     try:
-        if settings.RESEND_API_KEY:
-            if _send_via_resend(to_email, subject, html):
+        if settings.MAILERSEND_API_KEY:
+            if _send_via_mailersend(to_email, subject, html):
                 return
-            # Resend falhou — tenta SMTP só se houver credenciais (local)
             if settings.EMAIL_USERNAME and settings.EMAIL_PASSWORD:
                 _send_via_smtp(to_email, subject, html)
             return
         _send_via_smtp(to_email, subject, html)
-    except Exception as exc:
-        print(f"[EMAIL] envio falhou para {to_email}: {type(exc).__name__}: {exc}")
+    except Exception as e:
+        print(f"[EMAIL] ERRO: {type(e).__name__}: {e}")
         raise
