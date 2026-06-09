@@ -20,6 +20,13 @@ class Settings(BaseSettings):
     EMAIL_PASSWORD: str = ""
     FRONTEND_URL: str = "http://localhost:5173"
 
+    # Brevo (HTTP) — Render bloqueia SMTP de saída; e-mail vai por HTTPS.
+    # Grátis 300/dia, só exige verificar 1 sender (sem domínio) → envia p/ qualquer um.
+    # Se BREVO_API_KEY existir, é o método primário (SMTP só fallback local).
+    BREVO_API_KEY: str = ""
+    BREVO_FROM_EMAIL: str = ""
+    BREVO_FROM_NAME: str = "Leaf Talk"
+
     GOOGLE_CLIENT_ID: str | None = None
     GOOGLE_CLIENT_SECRET: str | None = None
     GOOGLE_REDIRECT_URI: str | None = None
