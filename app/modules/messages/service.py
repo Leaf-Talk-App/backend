@@ -265,13 +265,15 @@ async def get_messages(chat_id: str, skip: int = 0, limit: int = 50, user_id: st
     parsed = []
 
     for message in messages:
-
+        # .get() em TODOS os campos — uma única mensagem legada/sem chave
+        # quebrava a rota inteira com KeyError (500) e a conversa "parava de
+        # enviar/receber" porque o histórico nunca carregava.
         parsed.append({
             "_id": str(message["_id"]),
-            "chat_id": message["chat_id"],
-            "sender_id": message["sender_id"],
-            "receiver_id": message["receiver_id"],
-            "content": message["content"],
+            "chat_id": message.get("chat_id", chat_id),
+            "sender_id": message.get("sender_id", ""),
+            "receiver_id": message.get("receiver_id", ""),
+            "content": message.get("content", ""),
             "type": message.get("type", "text"),
             "file_url": message.get("file_url"),
             "status": message.get("status"),
