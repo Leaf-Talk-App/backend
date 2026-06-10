@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from bson import ObjectId
+from fastapi import HTTPException
 from app.core.database import get_database
 from app.core.websocket import manager
 
@@ -21,13 +22,20 @@ def _iso_utc(dt):
 async def send_message(current_user, data):
     db = get_database()
 
+    # Valida chat_id antes de qualquer operação (ObjectId lança exceção para IDs inválidos)
+    try:
+        chat_oid = ObjectId(data.chat_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid chat ID")
+
+    # Destinatário bloqueou o remetente → retorna 403 (erro real, não 200 silencioso)
     blocked = await db.blocked_users.find_one({
         "user_id": data.receiver_id,
         "blocked_user_id": current_user["sub"]
     })
 
     if blocked:
-        return {"error": "You are blocked"}
+        raise HTTPException(status_code=403, detail="blocked")
 
     now = datetime.now(timezone.utc)
 
@@ -56,7 +64,7 @@ async def send_message(current_user, data):
     result = await db.messages.insert_one(message)
 
     await db.chats.update_one(
-        {"_id": ObjectId(data.chat_id)},
+        {"_id": chat_oid},
         {
             "$set": {
                 "updated_at": now,
