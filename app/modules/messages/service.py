@@ -47,6 +47,26 @@ async def send_message(current_user, data):
         else "sent"
     )
 
+    # Resposta a mensagem: denormaliza uma prévia da original no envio, para o
+    # balão citar sem precisar de outra consulta. Se a original sumiu, ignora.
+    reply_to = getattr(data, "reply_to", None) or None
+    reply_preview = None
+    if reply_to:
+        try:
+            original = await db.messages.find_one({"_id": ObjectId(reply_to)})
+        except Exception:
+            original = None
+        if original:
+            snippet = (original.get("content") or "")[:120]
+            reply_preview = {
+                "_id": str(original["_id"]),
+                "sender_id": original.get("sender_id", ""),
+                "content": snippet,
+                "type": original.get("type", "text"),
+            }
+        else:
+            reply_to = None  # original não existe mais → não cita
+
     message = {
         "chat_id": data.chat_id,
         "sender_id": current_user["sub"],
@@ -56,6 +76,9 @@ async def send_message(current_user, data):
 
         "type": data.type,
         "file_url": data.file_url,
+
+        "reply_to": reply_to,
+        "reply_preview": reply_preview,
 
         "status": status,
         "read": False,
@@ -91,6 +114,8 @@ async def send_message(current_user, data):
         "content": data.content,
         "type_msg": data.type,         # "text" | "file" | "audio"
         "file_url": data.file_url,
+        "reply_to": reply_to,
+        "reply_preview": reply_preview,
         "created_at": now.isoformat(),
         "status": status,
     }
@@ -111,6 +136,8 @@ async def send_message(current_user, data):
         "content": data.content,
         "type": data.type,
         "file_url": data.file_url,
+        "reply_to": reply_to,
+        "reply_preview": reply_preview,
         "created_at": now.isoformat(),
         "read": False,
         "edited": False,
@@ -316,6 +343,8 @@ async def get_messages(chat_id: str, skip: int = 0, limit: int = 50, user_id: st
             "read_by": message.get("read_by", []),
             "edited": message.get("edited", False),
             "deleted": message.get("deleted", False),
+            "reply_to": message.get("reply_to"),
+            "reply_preview": message.get("reply_preview"),
             "created_at": _iso_utc(message.get("created_at")),
         })
 
