@@ -12,7 +12,7 @@ pytest
 pytest-asyncio
 httpx
 websockets
-google-genai
+anthropic
 apscheduler
 python-multipart
 google-auth

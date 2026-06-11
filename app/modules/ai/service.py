@@ -1,16 +1,39 @@
+import base64
 import json
 import os
 from datetime import datetime
 from bson import ObjectId
 import httpx
-from google import genai
-from google.genai import types
+import anthropic
 from app.core.config import settings
 from app.core.database import get_database
 
-client = genai.Client(
-    api_key=settings.GEMINI_API_KEY
-)
+# Cliente Anthropic (Claude). A key vem de ANTHROPIC_API_KEY (env) — nunca hardcoded.
+# Async para não bloquear o event loop do FastAPI.
+client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+
+# Modelo solicitado: Claude Haiku 4.5 (rápido e econômico, multimodal).
+AI_MODEL = "claude-haiku-4-5-20251001"
+
+# Personalidade do Humberto — preservada exatamente como estava no Gemini.
+HUMBERTO_SYSTEM = """Você é o Humberto, assistente de IA geral do Leaf Talk.
+
+Você é um assistente de conversa geral (como um ChatGPT). Você NÃO tem acesso às
+conversas, mensagens, contatos, notificações, status de leitura nem a qualquer
+dado interno do app Leaf. Nunca afirme ter esse acesso e nunca invente esses dados.
+
+O que você faz: ajuda a escrever e revisar textos e mensagens, dá ideias, explica
+assuntos, ajuda com produtividade, sugere temas de conversa e responde perguntas
+gerais. Se houver um anexo (imagem ou PDF), você pode analisá-lo.
+
+Se o usuário pedir algo que dependa de dados do app (ex.: "resuma minhas
+conversas", "o que ainda não respondi"), explique com gentileza que você não tem
+acesso a essas informações, mas ofereça ajuda de outra forma.
+
+Responda sempre em português, de forma clara e útil."""
+
+# Tipos de imagem aceitos pela API da Anthropic.
+_SUPPORTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
 
 
 async def _fetch_attachment(url: str, mime: str | None):
@@ -37,45 +60,38 @@ async def _fetch_attachment(url: str, mime: str | None):
 async def ask_ai(prompt: str, current_user, attachment_url: str = None, attachment_mime: str = None):
     db = get_database()
 
-    full_prompt = f"""Você é o Humberto, assistente de IA geral do Leaf Talk.
+    # Conteúdo do turno do usuário: texto + anexo opcional (imagem / PDF).
+    # Claude Haiku 4.5 é multimodal (imagem e PDF). Áudio não é suportado pela
+    # API da Anthropic → anexos de áudio são ignorados (segue só com o texto).
+    user_content: list = [{"type": "text", "text": prompt}]
 
-Você é um assistente de conversa geral (como um ChatGPT). Você NÃO tem acesso às
-conversas, mensagens, contatos, notificações, status de leitura nem a qualquer
-dado interno do app Leaf. Nunca afirme ter esse acesso e nunca invente esses dados.
-
-O que você faz: ajuda a escrever e revisar textos e mensagens, dá ideias, explica
-assuntos, ajuda com produtividade, sugere temas de conversa e responde perguntas
-gerais. Se houver um anexo (imagem ou PDF), você pode analisá-lo.
-
-Se o usuário pedir algo que dependa de dados do app (ex.: "resuma minhas
-conversas", "o que ainda não respondi"), explique com gentileza que você não tem
-acesso a essas informações, mas ofereça ajuda de outra forma.
-
-Responda sempre em português, de forma clara e útil.
-
-Mensagem do usuário:
-{prompt}
-"""
-
-    contents = [full_prompt]
-
-    # anexo opcional (imagem / PDF / áudio) — Gemini 2.5-flash é multimodal
     if attachment_url:
         try:
             file_bytes, mime = await _fetch_attachment(attachment_url, attachment_mime)
-            if file_bytes:
-                contents.append(
-                    types.Part.from_bytes(data=file_bytes, mime_type=mime)
-                )
+            if file_bytes and mime:
+                b64 = base64.standard_b64encode(file_bytes).decode("utf-8")
+                if mime in _SUPPORTED_IMAGE_TYPES:
+                    user_content.append({
+                        "type": "image",
+                        "source": {"type": "base64", "media_type": mime, "data": b64},
+                    })
+                elif mime == "application/pdf":
+                    user_content.append({
+                        "type": "document",
+                        "source": {"type": "base64", "media_type": "application/pdf", "data": b64},
+                    })
+                # demais tipos (áudio, etc.) não são aceitos → ignora
         except Exception:
             pass  # se falhar o anexo, segue só com o texto
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=contents,
+    response = await client.messages.create(
+        model=AI_MODEL,
+        max_tokens=4096,
+        system=HUMBERTO_SYSTEM,
+        messages=[{"role": "user", "content": user_content}],
     )
 
-    text = response.text.strip()
+    text = "".join(b.text for b in response.content if b.type == "text").strip()
 
     try:
         data = json.loads(text)

@@ -30,8 +30,8 @@ services:
       - key: JWT_EXPIRE_MINUTES
         value: "60"
 
-      # ── IA (Gemini) ───────────────────────────────────────────────────────
-      - key: GEMINI_API_KEY
+      # ── IA (Claude / Anthropic) ───────────────────────────────────────────
+      - key: ANTHROPIC_API_KEY
         sync: false
 
       # ── E-mail (Gmail SMTP) ───────────────────────────────────────────────

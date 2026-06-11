@@ -12,7 +12,8 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 dias de sessão ativa
 
-    GEMINI_API_KEY: str = ""
+    # IA — Humberto roda no Claude (Anthropic). Key vem do env, nunca hardcoded.
+    ANTHROPIC_API_KEY: str = ""
 
     EMAIL_HOST: str = "smtp.gmail.com"
     EMAIL_PORT: int = 587
