@@ -5,6 +5,70 @@ from app.core.database import get_database
 from app.core.websocket import manager
 
 
+async def deliver_direct_message(sender_id: str, receiver_id: str, content: str):
+    """Entrega uma mensagem 1:1 pelo caminho real (resolve/cria o chat, grava a
+    mensagem com chat_id + receiver_id corretos, atualiza last_message e notifica
+    por WebSocket). Usado pelo Humberto (enviar ao confirmar) e pelo agendador.
+    """
+    db = get_database()
+    now = datetime.now(timezone.utc)
+
+    participants = sorted([sender_id, receiver_id])
+    chat = await db.chats.find_one({"participants": participants})
+    if chat:
+        chat_id = str(chat["_id"])
+    else:
+        result = await db.chats.insert_one({
+            "participants": participants,
+            "created_at": now,
+            "updated_at": now,
+            "last_message": None,
+        })
+        chat_id = str(result.inserted_id)
+
+    status = "delivered" if manager.is_online(receiver_id) else "sent"
+
+    msg = {
+        "chat_id": chat_id,
+        "sender_id": sender_id,
+        "receiver_id": receiver_id,
+        "content": content,
+        "type": "text",
+        "file_url": None,
+        "status": status,
+        "read": False,
+        "read_by": [],
+        "created_at": now,
+    }
+    result = await db.messages.insert_one(msg)
+
+    await db.chats.update_one(
+        {"_id": ObjectId(chat_id)},
+        {"$set": {
+            "updated_at": now,
+            "last_message": {"content": content, "type": "text", "created_at": now, "status": status},
+            "deleted_by": [],
+        }},
+    )
+
+    ws_message = {
+        "type": "new_message",
+        "_id": str(result.inserted_id),
+        "chat_id": chat_id,
+        "sender_id": sender_id,
+        "receiver_id": receiver_id,
+        "content": content,
+        "type_msg": "text",
+        "file_url": None,
+        "created_at": now.isoformat(),
+        "status": status,
+    }
+    await manager.send_personal_message(receiver_id, ws_message)
+    await manager.send_personal_message(sender_id, ws_message)
+
+    return {"chat_id": chat_id, "message_id": str(result.inserted_id)}
+
+
 def _iso_utc(dt):
     """Serializa datetime como ISO UTC com offset.
 
