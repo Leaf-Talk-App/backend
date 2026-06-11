@@ -264,7 +264,13 @@ async def get_messages(chat_id: str, skip: int = 0, limit: int = 50, user_id: st
         if cleared_at:
             query["created_at"] = {"$gt": cleared_at}
 
-    messages = await db.messages.find(query).sort("created_at", 1).skip(skip).to_list(limit)
+    # Página 0 = as MAIS RECENTES (sort desc + skip), depois inverte para
+    # exibir em ordem cronológica. Antes era sort asc → página 0 trazia as 50
+    # mais ANTIGAS: em conversas longas a mensagem recém-enviada não entrava
+    # na janela, então o refetch via WebSocket a fazia "piscar e sumir", e as
+    # não-lidas (recentes) nunca carregavam → badge nunca zerava.
+    messages = await db.messages.find(query).sort("created_at", -1).skip(skip).to_list(limit)
+    messages.reverse()
 
     parsed = []
 
