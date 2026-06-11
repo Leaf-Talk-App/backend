@@ -11,3 +11,7 @@ class CreateDirectChatSchema(BaseModel):
 
 class ChatActionSchema(BaseModel):
     chat_id: str
+    # Silenciar: minutos de duração (>0). None = para sempre (quando muting).
+    mute_minutes: Optional[int] = None
+    # Reativar notificações.
+    unmute: Optional[bool] = False

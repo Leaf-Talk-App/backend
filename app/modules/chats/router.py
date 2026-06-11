@@ -15,6 +15,7 @@ from .service import (
     mute_chat,
     hide_chat,
     my_chats,
+    _is_muted,
 )
 
 router = APIRouter(prefix="/chats", tags=["Chats"])
@@ -100,7 +101,7 @@ async def get_chat_by_id(
         "last_message": chat.get("last_message"),
         "pinned": settings.get("pinned", False) if settings else False,
         "archived": settings.get("archived", False) if settings else False,
-        "muted": settings.get("muted", False) if settings else False,
+        "muted": _is_muted(settings),
         "unread_count": unread,
     }
 

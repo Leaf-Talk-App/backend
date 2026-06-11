@@ -1,7 +1,19 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from bson import ObjectId
 from fastapi import HTTPException
 from app.core.database import get_database
+
+
+def _is_muted(settings) -> bool:
+    """muted efetivo: respeita muted_until (expira sozinho)."""
+    if not settings or not settings.get("muted"):
+        return False
+    until = settings.get("muted_until")
+    if until is None:
+        return True  # para sempre
+    if until.tzinfo is None:
+        until = until.replace(tzinfo=timezone.utc)
+    return until > datetime.now(timezone.utc)
 
 async def create_chat(current_user, data):
     db = get_database()
@@ -88,26 +100,31 @@ async def pin_chat(current_user, data):
 async def mute_chat(current_user, data):
     db = get_database()
 
-    existing = await db.user_chat_settings.find_one({
-        "user_id": current_user["sub"],
-        "chat_id": data.chat_id,
-    })
-    new_val = not (existing.get("muted", False) if existing else False)
+    if data.unmute:
+        # Reativar notificações
+        await db.user_chat_settings.update_one(
+            {"user_id": current_user["sub"], "chat_id": data.chat_id},
+            {"$set": {"muted": False, "muted_until": None}},
+            upsert=True,
+        )
+        return {"message": "Chat unmuted", "muted": False}
+
+    # Silenciar: mute_minutes>0 → expira; None → para sempre
+    until = None
+    if data.mute_minutes:
+        until = datetime.now(timezone.utc) + timedelta(minutes=data.mute_minutes)
 
     await db.user_chat_settings.update_one(
-        {
-            "user_id": current_user["sub"],
-            "chat_id": data.chat_id
-        },
-        {
-            "$set": {
-                "muted": new_val
-            }
-        },
-        upsert=True
+        {"user_id": current_user["sub"], "chat_id": data.chat_id},
+        {"$set": {"muted": True, "muted_until": until}},
+        upsert=True,
     )
 
-    return {"message": "Chat muted" if new_val else "Chat unmuted", "muted": new_val}
+    return {
+        "message": "Chat muted",
+        "muted": True,
+        "muted_until": until.isoformat() if until else None,
+    }
 
 
 async def hide_chat(current_user, data):
@@ -215,7 +232,7 @@ async def my_chats(current_user):
             "last_message": last_message,
             "pinned": settings.get("pinned", False) if settings else False,
             "archived": settings.get("archived", False) if settings else False,
-            "muted": settings.get("muted", False) if settings else False,
+            "muted": _is_muted(settings),
             "unread_count": unread,
         }
 
