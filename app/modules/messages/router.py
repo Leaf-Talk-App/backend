@@ -11,6 +11,7 @@ from .service import (
     mark_as_read,
     edit_message,
     delete_message,
+    delete_message_for_me,
     clear_chat
 )
 
@@ -65,6 +66,14 @@ async def edit(
         message_id,
         data.content
     )
+
+
+@router.post("/{message_id}/delete-for-me")
+async def delete_for_me(
+    message_id: str,
+    user=Depends(get_current_user)
+):
+    return await delete_message_for_me(user, message_id)
 
 
 @router.delete("/{message_id}")

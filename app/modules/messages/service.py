@@ -117,6 +117,24 @@ async def send_message(current_user, data):
         "deleted": False,
     }
 
+async def delete_message_for_me(current_user, message_id):
+    """Apaga a mensagem SÓ para o usuário atual (some da lista dele;
+    o outro lado continua vendo). Vale para qualquer mensagem."""
+    db = get_database()
+
+    try:
+        oid = ObjectId(message_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid message ID")
+
+    await db.messages.update_one(
+        {"_id": oid},
+        {"$addToSet": {"deleted_for": current_user["sub"]}},
+    )
+
+    return {"message": "deleted_for_me"}
+
+
 async def delete_message(current_user, message_id):
     db = get_database()
 
@@ -126,6 +144,10 @@ async def delete_message(current_user, message_id):
 
     if not message:
         return {"error": "Message not found"}
+
+    # "apagar para todos": só o remetente pode
+    if message.get("sender_id") != current_user["sub"]:
+        raise HTTPException(status_code=403, detail="Only the sender can delete for everyone")
 
     await db.messages.update_one(
         {
@@ -255,8 +277,11 @@ async def get_messages(chat_id: str, skip: int = 0, limit: int = 50, user_id: st
 
     query = {"chat_id": chat_id}
 
-    # filtro de "limpar conversa" (per-user): só mensagens após cleared_at
     if user_id:
+        # "apagar para mim" (per-user): some só para quem apagou
+        query["deleted_for"] = {"$ne": user_id}
+
+        # filtro de "limpar conversa" (per-user): só mensagens após cleared_at
         settings = await db.user_chat_settings.find_one(
             {"user_id": user_id, "chat_id": chat_id}
         )
