@@ -35,6 +35,8 @@ async def send_message(current_user, data):
     })
 
     if blocked:
+        # log p/ diagnóstico no Render — identifica conversas "travadas" por bloqueio
+        print(f"[SEND] 403 blocked: {current_user['sub']} -> {data.receiver_id} (chat {data.chat_id})")
         raise HTTPException(status_code=403, detail="blocked")
 
     now = datetime.now(timezone.utc)
@@ -73,7 +75,9 @@ async def send_message(current_user, data):
                     "type": data.type,
                     "created_at": now,
                     "status": status
-                }
+                },
+                # nova mensagem "ressuscita" a conversa para quem a apagou
+                "deleted_by": [],
             }
         }
     )

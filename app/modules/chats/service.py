@@ -1,5 +1,6 @@
 from datetime import datetime
 from bson import ObjectId
+from fastapi import HTTPException
 from app.core.database import get_database
 
 async def create_chat(current_user, data):
@@ -128,14 +129,29 @@ async def hide_chat(current_user, data):
     return {"message": "Chat hidden"}
 
 async def delete_chat(current_user, chat_id):
+    """Apaga a conversa SÓ para o usuário atual (soft delete):
+    - adiciona o usuário em chats.deleted_by → some da lista dele;
+    - marca cleared_at → o histórico antigo não volta para ele.
+    Se o outro lado enviar nova mensagem, send_message zera deleted_by e a
+    conversa reaparece (apenas com as mensagens novas para quem apagou)."""
     db = get_database()
+
+    try:
+        oid = ObjectId(chat_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid chat ID")
+
+    await db.chats.update_one(
+        {"_id": oid},
+        {"$addToSet": {"deleted_by": current_user["sub"]}},
+    )
 
     await db.user_chat_settings.update_one(
         {
             "user_id": current_user["sub"],
             "chat_id": chat_id
         },
-        {"$set": {"deleted": True, "hidden": True}},
+        {"$set": {"cleared_at": datetime.utcnow()}},
         upsert=True
     )
 
@@ -158,6 +174,10 @@ async def my_chats(current_user):
 
     for chat in chats:
         chat_id = str(chat["_id"])
+
+        # apagada pelo usuário → fora da lista (volta quando alguém mandar msg)
+        if user_id in (chat.get("deleted_by") or []):
+            continue
 
         settings = await db.user_chat_settings.find_one({
             "user_id": user_id,

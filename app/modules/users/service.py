@@ -134,14 +134,18 @@ async def list_blocked_users(current_user):
         "user_id": current_user["sub"]
     }).to_list(100)
 
-    ids = [
-        x["blocked_user_id"]
-        for x in blocked
-    ]
+    # _id no Mongo é ObjectId; blocked_user_id é string → sem converter,
+    # o $in nunca casava e a lista voltava sempre vazia.
+    oids = []
+    for x in blocked:
+        try:
+            oids.append(ObjectId(x["blocked_user_id"]))
+        except Exception:
+            continue
 
     users = await db.users.find({
         "_id": {
-            "$in": ids
+            "$in": oids
         }
     }).to_list(100)
 
@@ -150,8 +154,10 @@ async def list_blocked_users(current_user):
     for user in users:
         result.append({
             "_id": str(user["_id"]),
-            "name": user["name"],
-            "email": user["email"]
+            "name": user.get("name", ""),
+            "display_name": user.get("display_name"),
+            "email": user.get("email", ""),
+            "avatar": user.get("avatar"),
         })
 
     return result
