@@ -12,6 +12,7 @@ from .service import (
     edit_message,
     delete_message,
     delete_message_for_me,
+    toggle_favorite,
     clear_chat
 )
 
@@ -74,6 +75,14 @@ async def delete_for_me(
     user=Depends(get_current_user)
 ):
     return await delete_message_for_me(user, message_id)
+
+
+@router.post("/{message_id}/favorite")
+async def favorite(
+    message_id: str,
+    user=Depends(get_current_user)
+):
+    return await toggle_favorite(user, message_id)
 
 
 @router.delete("/{message_id}")

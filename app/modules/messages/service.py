@@ -208,6 +208,27 @@ async def send_message(current_user, data):
         "deleted": False,
     }
 
+async def toggle_favorite(current_user, message_id):
+    """Favorita/desfavorita uma mensagem (por usuário, em favorited_by)."""
+    db = get_database()
+
+    try:
+        oid = ObjectId(message_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid message ID")
+
+    uid = current_user["sub"]
+    msg = await db.messages.find_one({"_id": oid}, {"favorited_by": 1})
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    is_fav = uid in (msg.get("favorited_by") or [])
+    op = {"$pull": {"favorited_by": uid}} if is_fav else {"$addToSet": {"favorited_by": uid}}
+    await db.messages.update_one({"_id": oid}, op)
+
+    return {"message": "ok", "favorited": not is_fav}
+
+
 async def delete_message_for_me(current_user, message_id):
     """Apaga a mensagem SÓ para o usuário atual (some da lista dele;
     o outro lado continua vendo). Vale para qualquer mensagem."""
@@ -409,6 +430,7 @@ async def get_messages(chat_id: str, skip: int = 0, limit: int = 50, user_id: st
             "deleted": message.get("deleted", False),
             "reply_to": message.get("reply_to"),
             "reply_preview": message.get("reply_preview"),
+            "favorited": bool(user_id) and user_id in (message.get("favorited_by") or []),
             "created_at": _iso_utc(message.get("created_at")),
         })
 
