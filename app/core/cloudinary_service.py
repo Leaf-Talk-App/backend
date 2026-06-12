@@ -81,13 +81,23 @@ def upload_bytes(
     return result["secure_url"]
 
 
-def upload_bytes_raw(content: bytes, *, folder: str = "leaf/audio") -> str:
-    """Upload de áudio/arquivo sem transformação."""
+def upload_bytes_raw(content: bytes, *, folder: str = "leaf/audio", ext: str = "") -> str:
+    """Upload de áudio/arquivo sem transformação (resource_type=raw).
+
+    `ext` (ex.: ".pdf", ".docx") é anexado ao public_id para que a URL final
+    termine com a extensão correta. Sem isso, o Cloudinary serve o arquivo raw
+    sem extensão → o download vem num "formato nada a ver" (o SO não reconhece o
+    tipo) e a detecção de PDF no front falha.
+    """
     _ensure_configured()
+    ext = (ext or "").strip().lower()
+    if ext and not ext.startswith("."):
+        ext = "." + ext
+    pid = uuid.uuid4().hex + ext
     result = cloudinary.uploader.upload(
         content,
         folder=folder,
         resource_type="raw",
-        public_id=uuid.uuid4().hex,
+        public_id=pid,
     )
     return result["secure_url"]

@@ -54,15 +54,19 @@ def _upload_image(content: bytes, content_type: str) -> str:
 
 
 def _upload_audio(content: bytes, content_type: str) -> str:
+    ext = EXT_MAP.get(content_type, ".ogg")
     if is_cloudinary_enabled():
-        return upload_bytes_raw(content, folder="leaf/audio")
-    return _save_local(content, EXT_MAP.get(content_type, ".ogg"))
+        return upload_bytes_raw(content, folder="leaf/audio", ext=ext)
+    return _save_local(content, ext)
 
 
 def _upload_file(content: bytes, filename: str) -> str:
+    # Preserva a extensão original do arquivo para o download voltar no formato
+    # certo (PDF, DOCX, XLSX…). Raw sem extensão → "formato nada a ver".
+    ext = os.path.splitext(filename or "")[1].lower() or ".bin"
     if is_cloudinary_enabled():
-        return upload_bytes_raw(content, folder="leaf/files")
-    safe = filename or f"{uuid.uuid4().hex}.bin"
+        return upload_bytes_raw(content, folder="leaf/files", ext=ext)
+    safe = filename or f"{uuid.uuid4().hex}{ext}"
     path = os.path.join(UPLOAD_DIR, safe)
     with open(path, "wb") as f:
         f.write(content)

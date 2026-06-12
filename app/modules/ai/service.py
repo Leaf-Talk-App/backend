@@ -37,9 +37,48 @@ Regras: use o nome do contato exatamente como o usuário disse; em "datetime" us
 
 Em QUALQUER outra situação (conversa, dúvidas, escrever/revisar texto), responda em texto normal — NUNCA use JSON."""
 
+# Persona enxuta para quando o Humberto é MENCIONADO dentro de uma conversa/grupo.
+# Sem protocolo de ação (não envia/agenda por aqui) — só responde em texto curto.
+HUMBERTO_INLINE_SYSTEM = """Você é o Humberto, assistente de IA do Leaf Talk, respondendo dentro de uma conversa onde alguém te mencionou. Responda sempre em português, de forma curta, clara e útil (1 a 4 frases). Você NÃO tem acesso ao histórico da conversa nem às mensagens das pessoas — responda apenas ao que foi perguntado a você. Data e hora atuais: <DATA>."""
+
+# ID virtual do remetente das respostas do Humberto dentro de conversas/grupos.
+HUMBERTO_USER_ID = "humberto"
+
 # Tipos de imagem aceitos pela API da Anthropic.
 _SUPPORTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
 _ACTION_KINDS = {"send_message", "schedule_message"}
+
+
+def mentions_humberto(text: str) -> bool:
+    """True se a mensagem menciona @Humberto (case-insensitive)."""
+    return bool(text) and bool(re.search(r"@humberto\b", text, re.IGNORECASE))
+
+
+def strip_humberto_mention(text: str) -> str:
+    """Remove a menção @Humberto, deixando só a pergunta."""
+    return re.sub(r"@humberto\b", "", text or "", flags=re.IGNORECASE).strip()
+
+
+async def humberto_reply(prompt: str) -> str:
+    """Resposta de texto do Humberto quando mencionado numa conversa/grupo.
+    Sem ações nem persistência de histórico — só gera a resposta."""
+    question = (prompt or "").strip()
+    if not question:
+        return "Oi! Em que posso ajudar? Escreva sua pergunta após @Humberto."
+    system_prompt = HUMBERTO_INLINE_SYSTEM.replace(
+        "<DATA>", datetime.now(_USER_TZ).strftime("%d/%m/%Y %H:%M")
+    )
+    try:
+        response = await client.messages.create(
+            model=AI_MODEL,
+            max_tokens=1024,
+            system=system_prompt,
+            messages=[{"role": "user", "content": [{"type": "text", "text": question}]}],
+        )
+        text = "".join(b.text for b in response.content if b.type == "text").strip()
+        return text or "Desculpe, não consegui responder agora."
+    except Exception:
+        return "Desculpe, não consegui responder agora."
 
 
 async def _fetch_attachment(url: str, mime: str | None):

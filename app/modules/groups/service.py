@@ -188,6 +188,47 @@ async def send_group_message(current_user, data):
         if member_id != current_user["sub"]:
             await manager.send_personal_message(member_id, ws_message)
 
+    # @Humberto mencionado no grupo → responde ali mesmo. Import tardio evita ciclo.
+    if msg_type == "text":
+        from app.modules.ai.service import (
+            mentions_humberto, strip_humberto_mention, humberto_reply, HUMBERTO_USER_ID,
+        )
+        if mentions_humberto(content):
+            reply_text = await humberto_reply(strip_humberto_mention(content))
+            now2 = datetime.now(timezone.utc)
+            hmsg = {
+                "group_id": data.group_id,
+                "sender_id": HUMBERTO_USER_ID,
+                "content": reply_text,
+                "type": "text",
+                "file_url": None,
+                "created_at": now2,
+            }
+            hres = await db.group_messages.insert_one(hmsg)
+            await db.groups.update_one(
+                {"_id": oid},
+                {"$set": {
+                    "updated_at": now2,
+                    "last_message": {
+                        "content": reply_text,
+                        "sender_id": HUMBERTO_USER_ID,
+                        "created_at": _iso(now2),
+                    },
+                }},
+            )
+            hws = {
+                "type": "group_message",
+                "_id": str(hres.inserted_id),
+                "group_id": data.group_id,
+                "sender_id": HUMBERTO_USER_ID,
+                "content": reply_text,
+                "msg_type": "text",
+                "file_url": None,
+                "created_at": _iso(now2),
+            }
+            for member_id in group.get("members", []):
+                await manager.send_personal_message(member_id, hws)
+
     return _serialize_message({**message, "_id": result.inserted_id})
 
 

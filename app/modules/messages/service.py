@@ -189,6 +189,56 @@ async def send_message(current_user, data):
     # Notifica também o remetente (para multi-dispositivo / confirmação imediata)
     await manager.send_personal_message(current_user["sub"], ws_message)
 
+    # @Humberto mencionado na conversa → ele responde ali mesmo (mensagem da IA).
+    # Import tardio evita ciclo (ai.service importa deliver_direct_message daqui).
+    if (data.type or "text") == "text":
+        from app.modules.ai.service import (
+            mentions_humberto, strip_humberto_mention, humberto_reply, HUMBERTO_USER_ID,
+        )
+        if mentions_humberto(data.content):
+            reply_text = await humberto_reply(strip_humberto_mention(data.content))
+            now2 = datetime.now(timezone.utc)
+            hmsg = {
+                "chat_id": data.chat_id,
+                "sender_id": HUMBERTO_USER_ID,
+                "receiver_id": current_user["sub"],
+                "content": reply_text,
+                "type": "text",
+                "file_url": None,
+                "reply_to": None,
+                "reply_preview": None,
+                "status": "delivered",
+                "read": False,
+                "read_by": [],
+                "created_at": now2,
+            }
+            hres = await db.messages.insert_one(hmsg)
+            await db.chats.update_one(
+                {"_id": chat_oid},
+                {"$set": {
+                    "updated_at": now2,
+                    "last_message": {
+                        "content": reply_text, "type": "text",
+                        "created_at": now2, "status": "delivered",
+                    },
+                    "deleted_by": [],
+                }},
+            )
+            hws = {
+                "type": "new_message",
+                "_id": str(hres.inserted_id),
+                "chat_id": data.chat_id,
+                "sender_id": HUMBERTO_USER_ID,
+                "receiver_id": current_user["sub"],
+                "content": reply_text,
+                "type_msg": "text",
+                "file_url": None,
+                "created_at": now2.isoformat(),
+                "status": "delivered",
+            }
+            await manager.send_personal_message(current_user["sub"], hws)
+            await manager.send_personal_message(data.receiver_id, hws)
+
     return {
         "message": "sent",
         "status": status,
