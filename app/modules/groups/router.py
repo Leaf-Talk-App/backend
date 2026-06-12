@@ -5,6 +5,8 @@ from .schemas import (
     AddMemberSchema,
     RemoveMemberSchema,
     SendGroupMessageSchema,
+    UpdateGroupSchema,
+    SetAdminSchema,
 )
 
 from .service import (
@@ -17,6 +19,8 @@ from .service import (
     leave_group,
     join_by_code,
     send_group_message,
+    update_group,
+    set_admin,
 )
 
 router = APIRouter(
@@ -54,6 +58,22 @@ async def remove(
     user=Depends(get_current_user)
 ):
     return await remove_member(user, data)
+
+
+@router.post("/update")
+async def update(
+    data: UpdateGroupSchema,
+    user=Depends(get_current_user)
+):
+    return await update_group(user, data)
+
+
+@router.post("/set-admin")
+async def set_admin_route(
+    data: SetAdminSchema,
+    user=Depends(get_current_user)
+):
+    return await set_admin(user, data)
 
 
 @router.post("/send-message")

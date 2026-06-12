@@ -29,9 +29,11 @@ def _serialize_group(g, last_message=None):
     return {
         "_id": str(g["_id"]),
         "name": g.get("name", "Grupo"),
+        "description": g.get("description", ""),
         "photo": g.get("photo"),
         "members": g.get("members", []),
         "admins": g.get("admins", []),
+        "only_admins_can_send": bool(g.get("only_admins_can_send", False)),
         "invite_code": g.get("invite_code"),
         "created_by": g.get("created_by"),
         "member_count": len(g.get("members", [])),
@@ -66,9 +68,11 @@ async def create_group(current_user, data):
     now = datetime.now(timezone.utc)
     group = {
         "name": name,
+        "description": "",
         "photo": None,
         "members": members,
         "admins": [current_user["sub"]],
+        "only_admins_can_send": False,
         "invite_code": secrets.token_hex(4),
         "created_by": current_user["sub"],
         "created_at": now,
@@ -140,6 +144,10 @@ async def send_group_message(current_user, data):
 
     if current_user["sub"] not in group.get("members", []):
         return {"error": "Você não faz parte deste grupo"}
+
+    # Regra interna: só admins enviam mensagens (se ativada).
+    if group.get("only_admins_can_send") and current_user["sub"] not in group.get("admins", []):
+        return {"error": "Apenas administradores podem enviar mensagens neste grupo"}
 
     content = (data.content or "").strip()
     msg_type = getattr(data, "type", None) or "text"
@@ -230,6 +238,81 @@ async def send_group_message(current_user, data):
                 await manager.send_personal_message(member_id, hws)
 
     return _serialize_message({**message, "_id": result.inserted_id})
+
+
+async def update_group(current_user, data):
+    """Renomeia, define descrição e regra de envio. Apenas admin."""
+    db = get_database()
+
+    oid = _oid(data.group_id)
+    if not oid:
+        return {"error": "Grupo inválido"}
+
+    group = await db.groups.find_one({"_id": oid})
+    if not group:
+        return {"error": "Grupo não encontrado"}
+
+    if current_user["sub"] not in group.get("admins", []):
+        return {"error": "Apenas administradores podem editar o grupo"}
+
+    updates = {}
+    if data.name is not None:
+        name = data.name.strip()
+        if not name:
+            return {"error": "Nome do grupo é obrigatório"}
+        updates["name"] = name
+    if data.description is not None:
+        updates["description"] = data.description.strip()
+    if data.only_admins_can_send is not None:
+        updates["only_admins_can_send"] = bool(data.only_admins_can_send)
+
+    if not updates:
+        return _serialize_group(group, group.get("last_message"))
+
+    updates["updated_at"] = datetime.now(timezone.utc)
+    await db.groups.update_one({"_id": oid}, {"$set": updates})
+
+    updated = await db.groups.find_one({"_id": oid})
+    serialized = _serialize_group(updated, updated.get("last_message"))
+
+    # Notifica os membros para refetch do detalhe do grupo.
+    ws = {"type": "group_updated", "group_id": data.group_id}
+    for member_id in group.get("members", []):
+        await manager.send_personal_message(member_id, ws)
+
+    return serialized
+
+
+async def set_admin(current_user, data):
+    """Promove/rebaixa um membro a administrador. Apenas admin."""
+    db = get_database()
+
+    oid = _oid(data.group_id)
+    if not oid:
+        return {"error": "Grupo inválido"}
+
+    group = await db.groups.find_one({"_id": oid})
+    if not group:
+        return {"error": "Grupo não encontrado"}
+
+    if current_user["sub"] not in group.get("admins", []):
+        return {"error": "Apenas administradores podem alterar permissões"}
+
+    if data.user_id not in group.get("members", []):
+        return {"error": "Usuário não faz parte do grupo"}
+
+    if data.make_admin:
+        await db.groups.update_one({"_id": oid}, {"$addToSet": {"admins": data.user_id}})
+        msg = "Membro promovido a administrador"
+    else:
+        # criador nunca perde o admin
+        if data.user_id == group.get("created_by"):
+            return {"error": "O criador do grupo não pode deixar de ser administrador"}
+        await db.groups.update_one({"_id": oid}, {"$pull": {"admins": data.user_id}})
+        msg = "Administrador rebaixado a membro"
+
+    updated = await db.groups.find_one({"_id": oid})
+    return {"message": msg, "group": _serialize_group(updated, updated.get("last_message"))}
 
 
 async def add_member(current_user, data):

@@ -13,6 +13,17 @@ class RemoveMemberSchema(BaseModel):
     group_id: str
     user_id: str
 
+class UpdateGroupSchema(BaseModel):
+    group_id: str
+    name: Optional[str] = None
+    description: Optional[str] = None
+    only_admins_can_send: Optional[bool] = None
+
+class SetAdminSchema(BaseModel):
+    group_id: str
+    user_id: str
+    make_admin: bool = True
+
 class SendGroupMessageSchema(BaseModel):
     group_id: str
     content: str = ""
