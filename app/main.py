@@ -61,6 +61,14 @@ def health():
     }
 
 
+# Endpoint leve para keep-alive (UptimeRobot etc.) — evita o cold start do
+# Render free. Pingue https://leaftalk-app.onrender.com/health a cada 5 min.
+@app.get("/health", include_in_schema=False)
+@app.head("/health", include_in_schema=False)
+async def healthz():
+    return {"status": "ok"}
+
+
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup():
