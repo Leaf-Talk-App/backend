@@ -18,6 +18,8 @@ async def chat_ai(
         user,
         data.attachment_url,
         data.attachment_mime,
+        data.timezone,
+        data.tz_offset,
     )
 
 @router.post("/confirm/{task_id}")

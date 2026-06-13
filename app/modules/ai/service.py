@@ -1,4 +1,5 @@
 import base64
+import difflib
 import json
 import os
 import re
@@ -17,9 +18,29 @@ client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
 # Modelo solicitado: Claude Haiku 4.5 (rápido e econômico, multimodal).
 AI_MODEL = "claude-haiku-4-5-20251001"
 
-# Fuso do usuário (Brasil, UTC-3). Agendamentos vêm em horário local e são
-# convertidos para UTC ao gravar. (TODO: tornar configurável por usuário.)
-_USER_TZ = timezone(timedelta(hours=-3))
+# Fuso padrão (Brasil, UTC-3) — usado só como último recurso. O fuso real vem
+# do navegador do usuário a cada chamada (nome IANA ou offset em minutos).
+_DEFAULT_TZ = timezone(timedelta(hours=-3))
+
+
+def _resolve_tz(tz_name=None, tz_offset_min=None):
+    """Fuso do usuário: IANA (DST-aware) → offset do browser → padrão UTC-3.
+
+    tz_offset_min é o valor cru do JS getTimezoneOffset() (BR = 180), onde
+    horário_local = UTC - offset, então o offset real é -tz_offset_min.
+    """
+    if tz_name:
+        try:
+            from zoneinfo import ZoneInfo
+            return ZoneInfo(tz_name)
+        except Exception:
+            pass
+    if tz_offset_min is not None:
+        try:
+            return timezone(timedelta(minutes=-int(tz_offset_min)))
+        except Exception:
+            pass
+    return _DEFAULT_TZ
 
 # Personalidade do Humberto + protocolo de ação (enviar/agendar com confirmação).
 # <DATA> é substituído pela data atual para resolver "amanhã", "hoje 18h" etc.
@@ -66,7 +87,7 @@ async def humberto_reply(prompt: str) -> str:
     if not question:
         return "Oi! Em que posso ajudar? Escreva sua pergunta após @Humberto."
     system_prompt = HUMBERTO_INLINE_SYSTEM.replace(
-        "<DATA>", datetime.now(_USER_TZ).strftime("%d/%m/%Y %H:%M")
+        "<DATA>", datetime.now(_DEFAULT_TZ).strftime("%d/%m/%Y %H:%M")
     )
     try:
         response = await client.messages.create(
@@ -102,8 +123,10 @@ async def _fetch_attachment(url: str, mime: str | None):
     return None, None
 
 
-async def ask_ai(prompt: str, current_user, attachment_url: str = None, attachment_mime: str = None):
+async def ask_ai(prompt: str, current_user, attachment_url: str = None, attachment_mime: str = None,
+                 tz_name: str = None, tz_offset_min: int = None):
     db = get_database()
+    user_tz = _resolve_tz(tz_name, tz_offset_min)
 
     # Conteúdo do turno do usuário: texto + anexo opcional (imagem / PDF).
     # Claude Haiku 4.5 é multimodal (imagem e PDF). Áudio não é suportado pela
@@ -130,7 +153,7 @@ async def ask_ai(prompt: str, current_user, attachment_url: str = None, attachme
             pass  # se falhar o anexo, segue só com o texto
 
     system_prompt = HUMBERTO_SYSTEM_TEMPLATE.replace(
-        "<DATA>", datetime.now(_USER_TZ).strftime("%d/%m/%Y %H:%M")
+        "<DATA>", datetime.now(user_tz).strftime("%d/%m/%Y %H:%M")
     )
 
     response = await client.messages.create(
@@ -146,7 +169,7 @@ async def ask_ai(prompt: str, current_user, attachment_url: str = None, attachme
     # devolve um card de confirmação. Só envia/agenda quando o usuário confirma.
     action_data = _try_parse_action(text)
     if action_data:
-        card, reply_text = await _prepare_action(current_user, action_data)
+        card, reply_text = await _prepare_action(current_user, action_data, user_tz)
         await _persist_history(current_user, prompt, attachment_url, reply_text)
         return {"reply": reply_text, "action": card} if card else {"reply": reply_text}
 
@@ -174,13 +197,52 @@ def _try_parse_action(text: str):
 
 
 async def _resolve_contact(name: str):
-    """Acha o usuário-alvo pelo nome/display_name (case-insensitive)."""
+    """Acha o usuário-alvo pelo nome/display_name (case-insensitive, exato)."""
     db = get_database()
     rx = {"$regex": f"^{re.escape(name.strip())}$", "$options": "i"}
     return await db.users.find_one({"$or": [{"name": rx}, {"display_name": rx}]})
 
 
-async def _prepare_action(current_user, data):
+def _name_of(user) -> str:
+    return (user.get("display_name") or user.get("name") or "").strip()
+
+
+async def _user_contacts(user_id: str):
+    """Usuários com quem o atual já tem conversa (pool para sugestões)."""
+    db = get_database()
+    chats = await db.chats.find({"participants": user_id}).to_list(500)
+    ids = set()
+    for c in chats:
+        for p in c.get("participants", []):
+            if p and p != user_id:
+                ids.add(p)
+    oids = [ObjectId(i) for i in ids if ObjectId.is_valid(i)]
+    if not oids:
+        return []
+    return await db.users.find({"_id": {"$in": oids}}).to_list(500)
+
+
+def _find_similar_contacts(name: str, users, limit: int = 3):
+    """Contatos com nome parecido (aproximado). Retorna lista ordenada."""
+    target = (name or "").strip().lower()
+    if not target:
+        return []
+    scored = []
+    for u in users:
+        n = _name_of(u)
+        if not n:
+            continue
+        nl = n.lower()
+        ratio = difflib.SequenceMatcher(None, target, nl).ratio()
+        # quem contém o termo (ou vice-versa) é forte candidato
+        if target in nl or nl in target:
+            ratio = max(ratio, 0.88)
+        scored.append((ratio, u))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [u for ratio, u in scored if ratio >= 0.55][:limit]
+
+
+async def _prepare_action(current_user, data, user_tz):
     """Cria a pendência (não envia) e monta o card de confirmação.
     Retorna (card | None, reply_text)."""
     db = get_database()
@@ -190,6 +252,18 @@ async def _prepare_action(current_user, data):
 
     contact = await _resolve_contact(to_name)
     if not contact:
+        # Sem match exato → sugere parecidos entre os contatos e PERGUNTA antes
+        # (nunca escolhe sozinho). O usuário confirma o nome e o Humberto refaz.
+        contacts = await _user_contacts(current_user["sub"])
+        similar = _find_similar_contacts(to_name, contacts)
+        if similar:
+            names = [_name_of(u) for u in similar]
+            if len(names) == 1:
+                ask = f'Não achei "{to_name}" exatamente. Você quis dizer {names[0]}? Se sim, me confirme o nome.'
+            else:
+                listed = ", ".join(names[:-1]) + f" ou {names[-1]}"
+                ask = f'Não achei "{to_name}" exatamente. Você quis dizer {listed}? Me diga o nome certo.'
+            return None, ask
         return None, f'Não encontrei o contato "{to_name}". Confira o nome e tente de novo.'
 
     receiver_id = str(contact["_id"])
@@ -199,13 +273,13 @@ async def _prepare_action(current_user, data):
     run_at = now
     scheduled_label = None
     if is_schedule:
-        run_at = _parse_local_datetime(data.get("datetime"))
+        run_at = _parse_local_datetime(data.get("datetime"), user_tz)
         if not run_at:
             return None, (
                 "Para agendar eu preciso da data e hora. Me diga, por exemplo, "
                 '"amanhã às 9h".'
             )
-        scheduled_label = run_at.astimezone(_USER_TZ).strftime("%d/%m/%Y às %H:%M")
+        scheduled_label = run_at.astimezone(user_tz).strftime("%d/%m/%Y às %H:%M")
 
     pending = {
         "user_id": current_user["sub"],
@@ -237,14 +311,14 @@ async def _prepare_action(current_user, data):
     return card, reply_text
 
 
-def _parse_local_datetime(value):
+def _parse_local_datetime(value, user_tz):
     """Parseia 'YYYY-MM-DDTHH:MM' (horário local do usuário) → datetime UTC."""
     if not value or not isinstance(value, str):
         return None
     for fmt in ("%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M"):
         try:
             naive = datetime.strptime(value.strip(), fmt)
-            return naive.replace(tzinfo=_USER_TZ).astimezone(timezone.utc)
+            return naive.replace(tzinfo=user_tz).astimezone(timezone.utc)
         except ValueError:
             continue
     return None
