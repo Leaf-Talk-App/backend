@@ -314,10 +314,10 @@ async def my_chats(current_user):
             "unread_count": 0,
         })
 
-    # Ordena: não arquivados primeiro, pinados antes, mais recentes primeiro
-    result.sort(
-        key=lambda x: (x["archived"], not x["pinned"], x["updated_at"]),
-        reverse=False,
-    )
-    result.reverse()
+    # Ordena (sort estável, em 2 passes): 1º por data desc (mais recente no topo),
+    # depois por (arquivado, não-fixado) — fixados sobem ao topo, arquivados caem.
+    # Antes era um sort+reverse global que invertia também os booleanos e jogava
+    # os fixados pro FIM.
+    result.sort(key=lambda x: x["updated_at"] or "", reverse=True)
+    result.sort(key=lambda x: (x["archived"], not x["pinned"]))
     return result

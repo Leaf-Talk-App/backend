@@ -58,7 +58,9 @@ async def search_users(current_user, query):
     blocked_ids = [str(x["user_id"]) for x in blocked]
 
     # inclui searchable=True OU sem o campo (legados); só searchable=False fica de fora.
-    filters = {"searchable": {"$ne": False}}
+    # Só contas com e-mail verificado aparecem (não-verificadas não logam nem
+    # devem ser encontradas). Contas Google entram com verified=True.
+    filters = {"searchable": {"$ne": False}, "verified": True}
 
     if term:
         esc = re.escape(term)

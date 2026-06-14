@@ -73,6 +73,10 @@ async def healthz():
 @app.on_event("startup")
 async def startup():
     await connect_to_mongo()
+    # Inicia o agendador (entrega de mensagens agendadas do Humberto). Sem isto
+    # as mensagens confirmadas para agendar nunca eram entregues.
+    from app.modules.scheduler.service import start_scheduler
+    start_scheduler()
 
 
 @app.on_event("shutdown")

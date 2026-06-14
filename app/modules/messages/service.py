@@ -92,16 +92,14 @@ async def send_message(current_user, data):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid chat ID")
 
-    # Destinatário bloqueou o remetente → retorna 403 (erro real, não 200 silencioso)
+    # Destinatário bloqueou o remetente → NÃO avisa o remetente nem entrega.
+    # Estilo WhatsApp: o envio "parece" ok pra quem bloqueou-não-sabe, mas a
+    # mensagem fica oculta do bloqueador (deleted_for) e nada chega/notifica ele.
     blocked = await db.blocked_users.find_one({
         "user_id": data.receiver_id,
         "blocked_user_id": current_user["sub"]
     })
-
-    if blocked:
-        # log p/ diagnóstico no Render — identifica conversas "travadas" por bloqueio
-        print(f"[SEND] 403 blocked: {current_user['sub']} -> {data.receiver_id} (chat {data.chat_id})")
-        raise HTTPException(status_code=403, detail="blocked")
+    is_blocked = bool(blocked)
 
     now = datetime.now(timezone.utc)
 
@@ -147,27 +145,31 @@ async def send_message(current_user, data):
         "status": status,
         "read": False,
         "read_by": [],
+        # bloqueado → oculta do bloqueador (ele nunca vê nem é notificado)
+        "deleted_for": [data.receiver_id] if is_blocked else [],
         "created_at": now
     }
 
     result = await db.messages.insert_one(message)
 
-    await db.chats.update_one(
-        {"_id": chat_oid},
-        {
-            "$set": {
-                "updated_at": now,
-                "last_message": {
-                    "content": data.content,
-                    "type": data.type,
-                    "created_at": now,
-                    "status": status
-                },
-                # nova mensagem "ressuscita" a conversa para quem a apagou
-                "deleted_by": [],
+    # Bloqueado: não mexe na conversa do bloqueador (sem preview/“ressuscitar”).
+    if not is_blocked:
+        await db.chats.update_one(
+            {"_id": chat_oid},
+            {
+                "$set": {
+                    "updated_at": now,
+                    "last_message": {
+                        "content": data.content,
+                        "type": data.type,
+                        "created_at": now,
+                        "status": status
+                    },
+                    # nova mensagem "ressuscita" a conversa para quem a apagou
+                    "deleted_by": [],
+                }
             }
-        }
-    )
+        )
 
     ws_message = {
         "type": "new_message",         # permite filtrar no frontend
@@ -184,14 +186,15 @@ async def send_message(current_user, data):
         "status": status,
     }
 
-    # Notifica o destinatário em tempo-real
-    await manager.send_personal_message(data.receiver_id, ws_message)
+    # Notifica o destinatário em tempo-real — exceto se ele bloqueou o remetente.
+    if not is_blocked:
+        await manager.send_personal_message(data.receiver_id, ws_message)
     # Notifica também o remetente (para multi-dispositivo / confirmação imediata)
     await manager.send_personal_message(current_user["sub"], ws_message)
 
     # @Humberto mencionado na conversa → ele responde ali mesmo (mensagem da IA).
     # Import tardio evita ciclo (ai.service importa deliver_direct_message daqui).
-    if (data.type or "text") == "text":
+    if not is_blocked and (data.type or "text") == "text":
         from app.modules.ai.service import (
             mentions_humberto, strip_humberto_mention, humberto_reply, HUMBERTO_USER_ID,
         )

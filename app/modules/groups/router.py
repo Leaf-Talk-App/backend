@@ -21,6 +21,9 @@ from .service import (
     send_group_message,
     update_group,
     set_admin,
+    favorite_group_message,
+    delete_group_message_for_me,
+    delete_group_message,
 )
 
 router = APIRouter(
@@ -90,6 +93,22 @@ async def join(
     user=Depends(get_current_user)
 ):
     return await join_by_code(user, code)
+
+
+# ── Mensagens do grupo: favoritar / apagar (paridade com o 1:1) ──────────────
+@router.post("/messages/{message_id}/favorite")
+async def fav_group_msg(message_id: str, user=Depends(get_current_user)):
+    return await favorite_group_message(user, message_id)
+
+
+@router.post("/messages/{message_id}/delete-for-me")
+async def del_group_msg_me(message_id: str, user=Depends(get_current_user)):
+    return await delete_group_message_for_me(user, message_id)
+
+
+@router.post("/messages/{message_id}/delete")
+async def del_group_msg(message_id: str, user=Depends(get_current_user)):
+    return await delete_group_message(user, message_id)
 
 
 # Rotas com path param dinâmico ficam por último para não capturar /my, /create etc.

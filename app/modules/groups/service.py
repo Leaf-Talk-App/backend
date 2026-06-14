@@ -43,7 +43,7 @@ def _serialize_group(g, last_message=None):
     }
 
 
-def _serialize_message(m):
+def _serialize_message(m, user_id=None):
     return {
         "_id": str(m["_id"]),
         "group_id": m.get("group_id", ""),
@@ -51,8 +51,61 @@ def _serialize_message(m):
         "content": m.get("content", ""),
         "type": m.get("type", "text"),
         "file_url": m.get("file_url"),
+        "reply_to": m.get("reply_to"),
+        "reply_preview": m.get("reply_preview"),
+        "deleted": m.get("deleted", False),
+        "edited": m.get("edited", False),
+        "favorited": bool(user_id) and user_id in (m.get("favorited_by") or []),
         "created_at": _iso(m.get("created_at")),
     }
+
+
+async def _display_name(db, user_id):
+    """Nome de exibição de um usuário (para mensagens de sistema)."""
+    if user_id == "humberto":
+        return "Humberto"
+    oid = _oid(user_id)
+    if not oid:
+        return "Alguém"
+    u = await db.users.find_one({"_id": oid}, {"display_name": 1, "name": 1})
+    if not u:
+        return "Alguém"
+    return u.get("display_name") or u.get("name") or "Alguém"
+
+
+async def _system_message(db, group, text):
+    """Insere uma mensagem de sistema no grupo e notifica todos (entrou/saiu/
+    alteração de configurações). Aparece centralizada no histórico."""
+    oid = group["_id"]
+    group_id = str(oid)
+    now = datetime.now(timezone.utc)
+    msg = {
+        "group_id": group_id,
+        "sender_id": "system",
+        "content": text,
+        "type": "system",
+        "file_url": None,
+        "created_at": now,
+    }
+    res = await db.group_messages.insert_one(msg)
+    await db.groups.update_one(
+        {"_id": oid},
+        {"$set": {"updated_at": now, "last_message": {
+            "content": text, "sender_id": "system", "created_at": _iso(now),
+        }}},
+    )
+    ws = {
+        "type": "group_message",
+        "_id": str(res.inserted_id),
+        "group_id": group_id,
+        "sender_id": "system",
+        "content": text,
+        "msg_type": "system",
+        "file_url": None,
+        "created_at": _iso(now),
+    }
+    for member_id in group.get("members", []):
+        await manager.send_personal_message(member_id, ws)
 
 
 async def create_group(current_user, data):
@@ -123,12 +176,13 @@ async def get_group_messages(current_user, group_id, skip: int = 0, limit: int =
         return []
 
     # Página 0 = mais recentes (desc + skip), depois inverte para ordem cronológica.
+    # Filtra "apagar para mim" (deleted_for) do usuário atual.
     messages = await db.group_messages.find(
-        {"group_id": group_id}
+        {"group_id": group_id, "deleted_for": {"$ne": current_user["sub"]}}
     ).sort("created_at", -1).skip(skip).to_list(limit)
     messages.reverse()
 
-    return [_serialize_message(m) for m in messages]
+    return [_serialize_message(m, current_user["sub"]) for m in messages]
 
 
 async def send_group_message(current_user, data):
@@ -155,6 +209,22 @@ async def send_group_message(current_user, data):
     if not content and not file_url:
         return {"error": "Mensagem vazia"}
 
+    # Resposta: denormaliza prévia da original (igual ao 1:1).
+    reply_to = getattr(data, "reply_to", None) or None
+    reply_preview = None
+    if reply_to:
+        orig_oid = _oid(reply_to)
+        original = await db.group_messages.find_one({"_id": orig_oid}) if orig_oid else None
+        if original:
+            reply_preview = {
+                "_id": str(original["_id"]),
+                "sender_id": original.get("sender_id", ""),
+                "content": (original.get("content") or "")[:120],
+                "type": original.get("type", "text"),
+            }
+        else:
+            reply_to = None
+
     now = datetime.now(timezone.utc)
     message = {
         "group_id": data.group_id,
@@ -162,6 +232,8 @@ async def send_group_message(current_user, data):
         "content": content,
         "type": msg_type,
         "file_url": file_url,
+        "reply_to": reply_to,
+        "reply_preview": reply_preview,
         "created_at": now,
     }
 
@@ -189,6 +261,8 @@ async def send_group_message(current_user, data):
         "content": content,
         "msg_type": msg_type,
         "file_url": file_url,
+        "reply_to": reply_to,
+        "reply_preview": reply_preview,
         "created_at": _iso(now),
     }
 
@@ -237,7 +311,7 @@ async def send_group_message(current_user, data):
             for member_id in group.get("members", []):
                 await manager.send_personal_message(member_id, hws)
 
-    return _serialize_message({**message, "_id": result.inserted_id})
+    return _serialize_message({**message, "_id": result.inserted_id}, current_user["sub"])
 
 
 async def update_group(current_user, data):
@@ -274,6 +348,22 @@ async def update_group(current_user, data):
 
     updated = await db.groups.find_one({"_id": oid})
     serialized = _serialize_group(updated, updated.get("last_message"))
+
+    # Mensagem de sistema descrevendo a alteração.
+    actor = await _display_name(db, current_user["sub"])
+    changes = []
+    if "name" in updates:
+        changes.append(f'renomeou o grupo para "{updates["name"]}"')
+    if "description" in updates:
+        changes.append("alterou a descrição" if updates["description"] else "removeu a descrição")
+    if "only_admins_can_send" in updates:
+        changes.append(
+            "ativou: só admins enviam mensagens"
+            if updates["only_admins_can_send"]
+            else "liberou o envio de mensagens para todos"
+        )
+    if changes:
+        await _system_message(db, updated, f"{actor} {'; '.join(changes)}.")
 
     # Notifica os membros para refetch do detalhe do grupo.
     ws = {"type": "group_updated", "group_id": data.group_id}
@@ -312,6 +402,9 @@ async def set_admin(current_user, data):
         msg = "Administrador rebaixado a membro"
 
     updated = await db.groups.find_one({"_id": oid})
+    target = await _display_name(db, data.user_id)
+    note = f"{target} agora é administrador." if data.make_admin else f"{target} deixou de ser administrador."
+    await _system_message(db, updated, note)
     return {"message": msg, "group": _serialize_group(updated, updated.get("last_message"))}
 
 
@@ -329,10 +422,16 @@ async def add_member(current_user, data):
     if current_user["sub"] not in group.get("admins", []):
         return {"error": "Apenas administradores podem adicionar membros"}
 
+    already = data.user_id in group.get("members", [])
     await db.groups.update_one(
         {"_id": oid},
         {"$addToSet": {"members": data.user_id}},
     )
+    if not already:
+        updated = await db.groups.find_one({"_id": oid})
+        actor = await _display_name(db, current_user["sub"])
+        target = await _display_name(db, data.user_id)
+        await _system_message(db, updated, f"{actor} adicionou {target}.")
     return {"message": "Membro adicionado"}
 
 
@@ -350,10 +449,15 @@ async def remove_member(current_user, data):
     if current_user["sub"] not in group.get("admins", []):
         return {"error": "Apenas administradores podem remover membros"}
 
+    target = await _display_name(db, data.user_id)
     await db.groups.update_one(
         {"_id": oid},
         {"$pull": {"members": data.user_id, "admins": data.user_id}},
     )
+    # grupo (com members atualizados) para notificar quem ficou
+    updated = await db.groups.find_one({"_id": oid})
+    actor = await _display_name(db, current_user["sub"])
+    await _system_message(db, updated, f"{actor} removeu {target}.")
     return {"message": "Membro removido"}
 
 
@@ -364,6 +468,7 @@ async def leave_group(current_user, group_id):
     if not oid:
         return {"error": "Grupo inválido"}
 
+    actor = await _display_name(db, current_user["sub"])
     await db.groups.update_one(
         {"_id": oid},
         {"$pull": {
@@ -371,6 +476,10 @@ async def leave_group(current_user, group_id):
             "admins": current_user["sub"],
         }},
     )
+    # avisa quem ficou (grupo já sem o usuário que saiu)
+    updated = await db.groups.find_one({"_id": oid})
+    if updated:
+        await _system_message(db, updated, f"{actor} saiu do grupo.")
     return {"message": "Você saiu do grupo"}
 
 
@@ -381,8 +490,78 @@ async def join_by_code(current_user, code):
     if not group:
         return {"error": "Código inválido"}
 
+    already = current_user["sub"] in group.get("members", [])
     await db.groups.update_one(
         {"invite_code": code},
         {"$addToSet": {"members": current_user["sub"]}},
     )
+    if not already:
+        updated = await db.groups.find_one({"invite_code": code})
+        actor = await _display_name(db, current_user["sub"])
+        await _system_message(db, updated, f"{actor} entrou no grupo.")
     return {"message": "Você entrou no grupo", "group_id": str(group["_id"])}
+
+
+# ── Reações/remoção de mensagens do grupo (paridade com o 1:1) ───────────────
+async def favorite_group_message(current_user, message_id):
+    """Favorita/desfavorita (por usuário)."""
+    db = get_database()
+    oid = _oid(message_id)
+    if not oid:
+        return {"error": "Mensagem inválida"}
+    msg = await db.group_messages.find_one({"_id": oid}, {"favorited_by": 1})
+    if not msg:
+        return {"error": "Mensagem não encontrada"}
+    uid = current_user["sub"]
+    is_fav = uid in (msg.get("favorited_by") or [])
+    op = {"$pull": {"favorited_by": uid}} if is_fav else {"$addToSet": {"favorited_by": uid}}
+    await db.group_messages.update_one({"_id": oid}, op)
+    return {"message": "ok", "favorited": not is_fav}
+
+
+async def delete_group_message_for_me(current_user, message_id):
+    """Apaga só para o usuário atual (deleted_for)."""
+    db = get_database()
+    oid = _oid(message_id)
+    if not oid:
+        return {"error": "Mensagem inválida"}
+    await db.group_messages.update_one(
+        {"_id": oid}, {"$addToSet": {"deleted_for": current_user["sub"]}}
+    )
+    return {"message": "deleted_for_me"}
+
+
+async def delete_group_message(current_user, message_id):
+    """Apaga para todos. Pode: o autor OU um administrador do grupo."""
+    db = get_database()
+    oid = _oid(message_id)
+    if not oid:
+        return {"error": "Mensagem inválida"}
+
+    msg = await db.group_messages.find_one({"_id": oid})
+    if not msg:
+        return {"error": "Mensagem não encontrada"}
+
+    goid = _oid(msg.get("group_id"))
+    group = await db.groups.find_one({"_id": goid}) if goid else None
+    if not group:
+        return {"error": "Grupo não encontrado"}
+
+    uid = current_user["sub"]
+    is_author = msg.get("sender_id") == uid
+    is_admin = uid in group.get("admins", [])
+    if not (is_author or is_admin):
+        return {"error": "Sem permissão para apagar esta mensagem"}
+
+    await db.group_messages.update_one(
+        {"_id": oid},
+        {"$set": {"deleted": True, "content": "Mensagem apagada", "file_url": None}},
+    )
+    ws = {
+        "type": "group_message_deleted",
+        "group_id": msg.get("group_id"),
+        "message_id": message_id,
+    }
+    for member_id in group.get("members", []):
+        await manager.send_personal_message(member_id, ws)
+    return {"message": "deleted"}

@@ -29,3 +29,4 @@ class SendGroupMessageSchema(BaseModel):
     content: str = ""
     type: Optional[str] = "text"
     file_url: Optional[str] = None
+    reply_to: Optional[str] = None
