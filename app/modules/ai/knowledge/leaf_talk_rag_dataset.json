@@ -1,0 +1,522 @@
+[
+  {
+    "question": "Quem pode ver minha foto de perfil?",
+    "answer": "A visualização da foto depende das configurações de privacidade disponíveis na plataforma."
+  },
+  {
+    "question": "Posso esconder minha foto de perfil?",
+    "answer": "Sim, caso essa opção esteja disponível nas configurações de privacidade."
+  },
+  {
+    "question": "Quem pode me encontrar na busca?",
+    "answer": "Usuários localizáveis podem aparecer nos resultados de pesquisa conforme suas configurações."
+  },
+  {
+    "question": "Posso impedir que encontrem meu perfil?",
+    "answer": "Você pode ajustar suas preferências de privacidade quando disponível."
+  },
+  {
+    "question": "Como proteger minhas informações pessoais?",
+    "answer": "Evite compartilhar dados sensíveis e utilize uma senha forte."
+  },
+  {
+    "question": "Posso mudar minha senha regularmente?",
+    "answer": "Sim, é recomendável atualizar sua senha periodicamente."
+  },
+  {
+    "question": "O que é uma senha forte?",
+    "answer": "Uma combinação de letras, números e caracteres especiais difícil de adivinhar."
+  },
+  {
+    "question": "Por que não devo compartilhar minha senha?",
+    "answer": "Porque isso pode comprometer a segurança da sua conta."
+  },
+  {
+    "question": "Como identificar mensagens suspeitas?",
+    "answer": "Desconfie de pedidos de informações pessoais ou links desconhecidos."
+  },
+  {
+    "question": "O que fazer ao receber mensagens suspeitas?",
+    "answer": "Evite clicar em links e denuncie o usuário se necessário."
+  },
+  {
+    "question": "Posso bloquear alguém sem avisar?",
+    "answer": "Sim, o bloqueio pode ser realizado diretamente pelo usuário."
+  },
+  {
+    "question": "O bloqueio é permanente?",
+    "answer": "Não, usuários bloqueados podem ser desbloqueados posteriormente."
+  },
+  {
+    "question": "Como saber se fui bloqueado?",
+    "answer": "O aplicativo não necessariamente informa quando um bloqueio ocorre."
+  },
+  {
+    "question": "Posso denunciar spam?",
+    "answer": "Sim, mensagens indesejadas podem ser denunciadas."
+  },
+  {
+    "question": "O que acontece após uma denúncia?",
+    "answer": "O conteúdo poderá ser analisado conforme as políticas da plataforma."
+  },
+  {
+    "question": "Como manter minha conta segura?",
+    "answer": "Utilize credenciais fortes e mantenha seus dados atualizados."
+  },
+  {
+    "question": "Posso usar o aplicativo em redes públicas?",
+    "answer": "Sim, mas recomenda-se cautela ao utilizar redes desconhecidas."
+  },
+  {
+    "question": "Como sair de todos os dispositivos?",
+    "answer": "Utilize as opções de gerenciamento de sessão, quando disponíveis."
+  },
+  {
+    "question": "Posso revisar meus dados cadastrados?",
+    "answer": "Sim, através das configurações do perfil."
+  },
+  {
+    "question": "O aplicativo protege minhas informações?",
+    "answer": "A plataforma utiliza medidas de segurança para proteger os usuários."
+  },
+  {
+    "question": "Como iniciar uma conversa rapidamente?",
+    "answer": "Pesquise um usuário e abra uma nova conversa."
+  },
+  {
+    "question": "Posso manter várias conversas abertas?",
+    "answer": "Sim, você pode alternar entre diferentes chats."
+  },
+  {
+    "question": "Como voltar para uma conversa antiga?",
+    "answer": "Selecione a conversa na lista de chats."
+  },
+  {
+    "question": "Posso apagar uma conversa inteira?",
+    "answer": "Dependendo dos recursos disponíveis, conversas podem ser removidas."
+  },
+  {
+    "question": "Como limpar minha lista de chats?",
+    "answer": "Removendo ou arquivando conversas quando permitido."
+  },
+  {
+    "question": "Posso conversar apenas com a IA?",
+    "answer": "Sim, a IA pode ser utilizada independentemente das conversas humanas."
+  },
+  {
+    "question": "Como a IA pode ajudar no dia a dia?",
+    "answer": "Fornecendo respostas, sugestões e assistência em diversas tarefas."
+  },
+  {
+    "question": "Posso pedir recomendações para a IA?",
+    "answer": "Sim, ela pode sugerir ideias e alternativas."
+  },
+  {
+    "question": "O Leaf Talk é apenas um mensageiro?",
+    "answer": "Não, ele também oferece recursos de inteligência artificial integrados."
+  },
+  {
+    "question": "Por que usar o Leaf Talk?",
+    "answer": "Porque combina comunicação e assistência inteligente em uma única plataforma."
+  },
+  {
+    "question": "Como editar meu perfil?",
+    "answer": "Acesse as configurações da conta e atualize suas informações."
+  },
+  {
+    "question": "Posso alterar meu nome de exibição?",
+    "answer": "Sim, nas configurações do perfil."
+  },
+  {
+    "question": "Como encontrar amigos?",
+    "answer": "Use a ferramenta de busca disponível no aplicativo."
+  },
+  {
+    "question": "Posso criar grupos?",
+    "answer": "Sim, grupos podem ser criados para reunir várias pessoas em uma conversa."
+  },
+  {
+    "question": "A IA responde perguntas gerais?",
+    "answer": "Sim, ela pode responder dúvidas sobre diversos assuntos."
+  },
+  {
+    "question": "Como atualizar minha foto?",
+    "answer": "Abra seu perfil e escolha uma nova imagem."
+  },
+  {
+    "question": "Posso silenciar conversas?",
+    "answer": "Quando disponível, utilize as opções da conversa para silenciar notificações."
+  },
+  {
+    "question": "Como pesquisar mensagens?",
+    "answer": "Utilize a ferramenta de busca dentro da conversa."
+  },
+  {
+    "question": "O Leaf Talk funciona em tempo real?",
+    "answer": "Sim, as mensagens são sincronizadas rapidamente entre os participantes."
+  },
+  {
+    "question": "O que é o Leaf Talk?",
+    "answer": "Leaf Talk é uma plataforma de comunicação que integra mensagens e inteligência artificial."
+  },
+  {
+    "question": "Como editar meu perfil?",
+    "answer": "Acesse as configurações da conta e atualize suas informações."
+  },
+  {
+    "question": "Posso alterar meu nome de exibição?",
+    "answer": "Sim, nas configurações do perfil."
+  },
+  {
+    "question": "Como encontrar amigos?",
+    "answer": "Use a ferramenta de busca disponível no aplicativo."
+  },
+  {
+    "question": "Posso criar grupos?",
+    "answer": "Sim, grupos podem ser criados para reunir várias pessoas em uma conversa."
+  },
+  {
+    "question": "A IA responde perguntas gerais?",
+    "answer": "Sim, ela pode responder dúvidas sobre diversos assuntos."
+  },
+  {
+    "question": "Como atualizar minha foto?",
+    "answer": "Abra seu perfil e escolha uma nova imagem."
+  },
+  {
+    "question": "Posso silenciar conversas?",
+    "answer": "Quando disponível, utilize as opções da conversa para silenciar notificações."
+  },
+  {
+    "question": "Como pesquisar mensagens?",
+    "answer": "Utilize a ferramenta de busca dentro da conversa."
+  },
+  {
+    "question": "O Leaf Talk funciona em tempo real?",
+    "answer": "Sim, as mensagens são sincronizadas rapidamente entre os participantes."
+  },
+  {
+    "question": "O que é o Leaf Talk?",
+    "answer": "Leaf Talk é uma plataforma de comunicação que integra mensagens e inteligência artificial."
+  },
+  {
+    "question": "Como editar meu perfil?",
+    "answer": "Acesse as configurações da conta e atualize suas informações."
+  },
+  {
+    "question": "Posso alterar meu nome de exibição?",
+    "answer": "Sim, nas configurações do perfil."
+  },
+  {
+    "question": "Como encontrar amigos?",
+    "answer": "Use a ferramenta de busca disponível no aplicativo."
+  },
+  {
+    "question": "Posso criar grupos?",
+    "answer": "Sim, grupos podem ser criados para reunir várias pessoas em uma conversa."
+  },
+  {
+    "question": "A IA responde perguntas gerais?",
+    "answer": "Sim, ela pode responder dúvidas sobre diversos assuntos."
+  },
+  {
+    "question": "Como atualizar minha foto?",
+    "answer": "Abra seu perfil e escolha uma nova imagem."
+  },
+  {
+    "question": "Posso silenciar conversas?",
+    "answer": "Quando disponível, utilize as opções da conversa para silenciar notificações."
+  },
+  {
+    "question": "Como pesquisar mensagens?",
+    "answer": "Utilize a ferramenta de busca dentro da conversa."
+  },
+  {
+    "question": "O Leaf Talk funciona em tempo real?",
+    "answer": "Sim, as mensagens são sincronizadas rapidamente entre os participantes."
+  },
+  {
+    "question": "O que é o Leaf Talk?",
+    "answer": "Leaf Talk é uma plataforma de comunicação que integra mensagens e inteligência artificial."
+  },
+  {
+    "question": "Como editar meu perfil?",
+    "answer": "Acesse as configurações da conta e atualize suas informações."
+  },
+  {
+    "question": "Posso alterar meu nome de exibição?",
+    "answer": "Sim, nas configurações do perfil."
+  },
+  {
+    "question": "Como encontrar amigos?",
+    "answer": "Use a ferramenta de busca disponível no aplicativo."
+  },
+  {
+    "question": "Posso criar grupos?",
+    "answer": "Sim, grupos podem ser criados para reunir várias pessoas em uma conversa."
+  },
+  {
+    "question": "A IA responde perguntas gerais?",
+    "answer": "Sim, ela pode responder dúvidas sobre diversos assuntos."
+  },
+  {
+    "question": "Como atualizar minha foto?",
+    "answer": "Abra seu perfil e escolha uma nova imagem."
+  },
+  {
+    "question": "Posso silenciar conversas?",
+    "answer": "Quando disponível, utilize as opções da conversa para silenciar notificações."
+  },
+  {
+    "question": "Como pesquisar mensagens?",
+    "answer": "Utilize a ferramenta de busca dentro da conversa."
+  },
+  {
+    "question": "O Leaf Talk funciona em tempo real?",
+    "answer": "Sim, as mensagens são sincronizadas rapidamente entre os participantes."
+  },
+  {
+    "question": "O que é o Leaf Talk?",
+    "answer": "Leaf Talk é uma plataforma de comunicação que integra mensagens e inteligência artificial."
+  },
+  {
+    "question": "Como editar meu perfil?",
+    "answer": "Acesse as configurações da conta e atualize suas informações."
+  },
+  {
+    "question": "Posso alterar meu nome de exibição?",
+    "answer": "Sim, nas configurações do perfil."
+  },
+  {
+    "question": "Como encontrar amigos?",
+    "answer": "Use a ferramenta de busca disponível no aplicativo."
+  },
+  {
+    "question": "Posso criar grupos?",
+    "answer": "Sim, grupos podem ser criados para reunir várias pessoas em uma conversa."
+  },
+  {
+    "question": "A IA responde perguntas gerais?",
+    "answer": "Sim, ela pode responder dúvidas sobre diversos assuntos."
+  },
+  {
+    "question": "Como atualizar minha foto?",
+    "answer": "Abra seu perfil e escolha uma nova imagem."
+  },
+  {
+    "question": "Posso silenciar conversas?",
+    "answer": "Quando disponível, utilize as opções da conversa para silenciar notificações."
+  },
+  {
+    "question": "Como pesquisar mensagens?",
+    "answer": "Utilize a ferramenta de busca dentro da conversa."
+  },
+  {
+    "question": "O Leaf Talk funciona em tempo real?",
+    "answer": "Sim, as mensagens são sincronizadas rapidamente entre os participantes."
+  },
+  {
+    "question": "O que é o Leaf Talk?",
+    "answer": "Leaf Talk é uma plataforma de comunicação que integra mensagens e inteligência artificial."
+  },
+  {
+    "question": "Como editar meu perfil?",
+    "answer": "Acesse as configurações da conta e atualize suas informações."
+  },
+  {
+    "question": "Posso alterar meu nome de exibição?",
+    "answer": "Sim, nas configurações do perfil."
+  },
+  {
+    "question": "Como encontrar amigos?",
+    "answer": "Use a ferramenta de busca disponível no aplicativo."
+  },
+  {
+    "question": "Posso criar grupos?",
+    "answer": "Sim, grupos podem ser criados para reunir várias pessoas em uma conversa."
+  },
+  {
+    "question": "A IA responde perguntas gerais?",
+    "answer": "Sim, ela pode responder dúvidas sobre diversos assuntos."
+  },
+  {
+    "question": "Como atualizar minha foto?",
+    "answer": "Abra seu perfil e escolha uma nova imagem."
+  },
+  {
+    "question": "Posso silenciar conversas?",
+    "answer": "Quando disponível, utilize as opções da conversa para silenciar notificações."
+  },
+  {
+    "question": "Como pesquisar mensagens?",
+    "answer": "Utilize a ferramenta de busca dentro da conversa."
+  },
+  {
+    "question": "O Leaf Talk funciona em tempo real?",
+    "answer": "Sim, as mensagens são sincronizadas rapidamente entre os participantes."
+  },
+  {
+    "question": "O que é o Leaf Talk?",
+    "answer": "Leaf Talk é uma plataforma de comunicação que integra mensagens e inteligência artificial."
+  },
+  {
+    "question": "Como editar meu perfil?",
+    "answer": "Acesse as configurações da conta e atualize suas informações."
+  },
+  {
+    "question": "Posso alterar meu nome de exibição?",
+    "answer": "Sim, nas configurações do perfil."
+  },
+  {
+    "question": "Como encontrar amigos?",
+    "answer": "Use a ferramenta de busca disponível no aplicativo."
+  },
+  {
+    "question": "Posso criar grupos?",
+    "answer": "Sim, grupos podem ser criados para reunir várias pessoas em uma conversa."
+  },
+  {
+    "question": "A IA responde perguntas gerais?",
+    "answer": "Sim, ela pode responder dúvidas sobre diversos assuntos."
+  },
+  {
+    "question": "Como atualizar minha foto?",
+    "answer": "Abra seu perfil e escolha uma nova imagem."
+  },
+  {
+    "question": "Posso silenciar conversas?",
+    "answer": "Quando disponível, utilize as opções da conversa para silenciar notificações."
+  },
+  {
+    "question": "Como pesquisar mensagens?",
+    "answer": "Utilize a ferramenta de busca dentro da conversa."
+  },
+  {
+    "question": "O Leaf Talk funciona em tempo real?",
+    "answer": "Sim, as mensagens são sincronizadas rapidamente entre os participantes."
+  },
+  {
+    "question": "O que é o Leaf Talk?",
+    "answer": "Leaf Talk é uma plataforma de comunicação que integra mensagens e inteligência artificial."
+  },
+  {
+    "question": "Quem criou o Leaf Talk?",
+    "answer": "O Leaf Talk foi criado por Alan Alonso, Andréia Vitória, Gustavo Ribeiro, Luiz Felipe e Pedro Evangelista em 2026."
+  },
+  {
+    "question": "Quem são os fundadores do Leaf Talk?",
+    "answer": "Os fundadores do Leaf Talk são Alan Alonso, Andréia Vitória, Gustavo Ribeiro, Luiz Felipe e Pedro Evangelista."
+  },
+  {
+    "question": "Quando o Leaf Talk foi criado?",
+    "answer": "O Leaf Talk foi criado no ano de 2026."
+  },
+  {
+    "question": "Em que ano nasceu o projeto Leaf Talk?",
+    "answer": "O projeto Leaf Talk foi criado em 2026."
+  },
+  {
+    "question": "Qual é a história do Leaf Talk?",
+    "answer": "O Leaf Talk nasceu em 2026 através da união de jovens apaixonados por tecnologia, inovação e comunicação digital."
+  },
+  {
+    "question": "Quem é Gustavo Ribeiro?",
+    "answer": "Gustavo Ribeiro nasceu em Santo André, São Paulo. Sempre foi apaixonado pela programação e possui a missão de levar conhecimento tecnológico para o maior número possível de pessoas. Colaborou diretamente na criação do backend do Leaf Talk e no treinamento inicial da IA Humberto."
+  },
+  {
+    "question": "Qual foi a participação de Gustavo Ribeiro no Leaf Talk?",
+    "answer": "Gustavo Ribeiro participou da criação do backend da plataforma e do treinamento inicial da IA Humberto."
+  },
+  {
+    "question": "Qual é a frase de efeito de Gustavo Ribeiro?",
+    "answer": "A frase de efeito de Gustavo Ribeiro é: 'Todos somos irmãos perante o mesmo Deus'."
+  },
+  {
+    "question": "Onde nasceu Gustavo Ribeiro?",
+    "answer": "Gustavo Ribeiro nasceu em Santo André, no estado de São Paulo."
+  },
+  {
+    "question": "Quem é Pedro Evangelista?",
+    "answer": "Pedro Evangelista nasceu em Uberlândia, Minas Gerais. Sempre teve interesse por programação e foi um dos principais responsáveis pelo desenvolvimento do frontend do Leaf Talk, atuando também em partes do backend."
+  },
+  {
+    "question": "Qual foi a contribuição de Pedro Evangelista para o Leaf Talk?",
+    "answer": "Pedro Evangelista foi um dos principais desenvolvedores do frontend da plataforma e colaborou em diversas partes do backend."
+  },
+  {
+    "question": "Qual é a frase de efeito de Pedro Evangelista?",
+    "answer": "A frase de efeito de Pedro Evangelista é: 'Senhor, para quem iremos? Tu tens as palavras de vida eterna. Nós cremos e sabemos que és o Santo de Deus.'"
+  },
+  {
+    "question": "Onde nasceu Pedro Evangelista?",
+    "answer": "Pedro Evangelista nasceu em Uberlândia, Minas Gerais."
+  },
+  {
+    "question": "Quem é Humberto?",
+    "answer": "Humberto é a inteligência artificial integrada ao Leaf Talk. Seu objetivo é auxiliar usuários em tarefas do dia a dia, responder dúvidas, fornecer informações e tornar a comunicação mais inteligente dentro da plataforma."
+  },
+  {
+    "question": "O que é o Humberto?",
+    "answer": "Humberto é o assistente virtual oficial do Leaf Talk."
+  },
+  {
+    "question": "Qual é a função do Humberto?",
+    "answer": "A função do Humberto é ajudar usuários fornecendo respostas, explicações, sugestões e assistência inteligente dentro do aplicativo."
+  },
+  {
+    "question": "Quem treinou o Humberto?",
+    "answer": "O treinamento inicial do Humberto contou com a colaboração da equipe de desenvolvimento do Leaf Talk, incluindo Gustavo Ribeiro."
+  },
+  {
+    "question": "O Humberto substitui pessoas reais?",
+    "answer": "Não. O Humberto é uma ferramenta de apoio que auxilia os usuários, mas não substitui a interação humana."
+  },
+  {
+    "question": "O Humberto aprende com os usuários?",
+    "answer": "O Humberto foi desenvolvido para auxiliar usuários através de conhecimentos previamente estruturados e funcionalidades inteligentes da plataforma."
+  },
+  {
+    "question": "Por que o Humberto foi criado?",
+    "answer": "O Humberto foi criado para tornar a experiência do Leaf Talk mais inteligente, acessível e produtiva."
+  },
+  {
+    "question": "O que diferencia o Leaf Talk de outros aplicativos?",
+    "answer": "O Leaf Talk combina comunicação moderna com inteligência artificial integrada, permitindo que usuários conversem entre si e também recebam assistência inteligente através do Humberto."
+  },
+  {
+    "question": "Qual é a missão do Leaf Talk?",
+    "answer": "A missão do Leaf Talk é conectar pessoas através da tecnologia, oferecendo comunicação simples, moderna e inteligente."
+  },
+  {
+    "question": "Quais valores inspiram o Leaf Talk?",
+    "answer": "O Leaf Talk valoriza inovação, respeito, colaboração, acessibilidade e desenvolvimento tecnológico."
+  },
+  {
+    "question": "Quem participa do desenvolvimento do Leaf Talk?",
+    "answer": "O Leaf Talk é desenvolvido por uma equipe formada por Alan Alonso, Andréia Vitória, Gustavo Ribeiro, Luiz Felipe e Pedro Evangelista."
+  },
+  {
+    "question": "O Leaf Talk possui inteligência artificial própria?",
+    "answer": "Sim. O Leaf Talk possui a IA Humberto integrada à plataforma."
+  },
+  {
+    "question": "Posso conversar com o Humberto?",
+    "answer": "Sim. O Humberto está disponível para responder perguntas e auxiliar os usuários do Leaf Talk."
+  },
+  {
+    "question": "O Humberto pode ajudar nos estudos?",
+    "answer": "Sim. O Humberto pode explicar conceitos, responder perguntas e auxiliar em diversas áreas do conhecimento."
+  },
+  {
+    "question": "O Humberto pode ajudar no trabalho?",
+    "answer": "Sim. O Humberto pode auxiliar na organização de ideias, esclarecimento de dúvidas e diversas tarefas profissionais."
+  },
+  {
+    "question": "O Leaf Talk foi desenvolvido no Brasil?",
+    "answer": "Sim. O Leaf Talk foi idealizado e desenvolvido por uma equipe brasileira."
+  },
+  {
+    "question": "Qual é o objetivo principal do Leaf Talk?",
+    "answer": "O objetivo principal do Leaf Talk é unir comunicação e inteligência artificial em uma única plataforma."
+  }
+]

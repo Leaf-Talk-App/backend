@@ -10,6 +10,7 @@ import anthropic
 from app.core.config import settings
 from app.core.database import get_database
 from app.modules.messages.service import deliver_direct_message
+from app.modules.ai.rag import context_block
 
 # Cliente Anthropic (Claude). A key vem de ANTHROPIC_API_KEY (env) — nunca hardcoded.
 # Async para não bloquear o event loop do FastAPI.
@@ -88,7 +89,7 @@ async def humberto_reply(prompt: str) -> str:
         return "Oi! Em que posso ajudar? Escreva sua pergunta após @Humberto."
     system_prompt = HUMBERTO_INLINE_SYSTEM.replace(
         "<DATA>", datetime.now(_DEFAULT_TZ).strftime("%d/%m/%Y %H:%M")
-    )
+    ) + context_block(question)
     try:
         response = await client.messages.create(
             model=AI_MODEL,
@@ -154,7 +155,7 @@ async def ask_ai(prompt: str, current_user, attachment_url: str = None, attachme
 
     system_prompt = HUMBERTO_SYSTEM_TEMPLATE.replace(
         "<DATA>", datetime.now(user_tz).strftime("%d/%m/%Y %H:%M")
-    )
+    ) + context_block(prompt)
 
     response = await client.messages.create(
         model=AI_MODEL,
@@ -178,20 +179,33 @@ async def ask_ai(prompt: str, current_user, attachment_url: str = None, attachme
 
 
 def _try_parse_action(text: str):
-    """Detecta um JSON de ação (send_message/schedule_message) na resposta.
-    Tolera cercas de código. Retorna o dict da ação ou None."""
-    raw = text.strip()
-    if raw.startswith("```"):
-        raw = raw.strip("`")
-        raw = raw[raw.find("{"):] if "{" in raw else raw
-    if not (raw.startswith("{") and raw.endswith("}")):
-        return None
-    try:
-        data = json.loads(raw)
-    except Exception:
-        return None
-    if isinstance(data, dict) and data.get("action") in _ACTION_KINDS:
-        if data.get("to") and data.get("content"):
+    """Detecta um JSON de ação (send_message/schedule_message) na resposta —
+    mesmo que o modelo coloque texto antes/depois ou cerque com ```.
+    Retorna o dict da ação ou None."""
+    raw = (text or "").strip()
+
+    candidates = [raw]
+    if "```" in raw:
+        candidates.append(raw.replace("```json", "```").strip("`"))
+    # objeto JSON achatado contendo "action" no meio do texto
+    for m in re.finditer(r'\{[^{}]*"action"[^{}]*\}', raw, re.DOTALL):
+        candidates.append(m.group(0))
+
+    for cand in candidates:
+        c = cand.strip().strip("`").strip()
+        s, e = c.find("{"), c.rfind("}")
+        if s == -1 or e == -1 or e < s:
+            continue
+        try:
+            data = json.loads(c[s : e + 1])
+        except Exception:
+            continue
+        if (
+            isinstance(data, dict)
+            and data.get("action") in _ACTION_KINDS
+            and data.get("to")
+            and data.get("content")
+        ):
             return data
     return None
 

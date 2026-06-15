@@ -101,10 +101,15 @@ async def send_message(current_user, data):
     })
     is_blocked = bool(blocked)
 
+    # Conversa consigo mesmo: a mensagem não é "nova/não lida" (você é o autor).
+    is_self = data.receiver_id == current_user["sub"]
+
     now = datetime.now(timezone.utc)
 
     status = (
-        "delivered"
+        "read"
+        if is_self
+        else "delivered"
         if manager.is_online(data.receiver_id)
         else "sent"
     )
@@ -143,7 +148,7 @@ async def send_message(current_user, data):
         "reply_preview": reply_preview,
 
         "status": status,
-        "read": False,
+        "read": is_self,  # auto-conversa: já "lida" → não vira badge de não lida
         "read_by": [],
         # bloqueado → oculta do bloqueador (ele nunca vê nem é notificado)
         "deleted_for": [data.receiver_id] if is_blocked else [],

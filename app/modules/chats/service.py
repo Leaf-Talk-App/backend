@@ -5,6 +5,16 @@ from app.core.database import get_database
 from app.core.websocket import manager
 
 MAX_PINNED = 3  # limite de conversas fixadas por usuário
+_ONLINE_WINDOW = timedelta(seconds=60)
+
+
+def _recent_online(last_seen) -> bool:
+    """Considera online se houve atividade (heartbeat) nos últimos 60s."""
+    if not last_seen or isinstance(last_seen, str):
+        return False
+    if last_seen.tzinfo is None:
+        last_seen = last_seen.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - last_seen < _ONLINE_WINDOW
 
 
 def _is_muted(settings) -> bool:
@@ -267,7 +277,7 @@ async def my_chats(current_user):
                 "name": u.get("name", ""),
                 "display_name": u.get("display_name"),
                 "avatar": u.get("avatar"),
-                "online": manager.is_online(uid),
+                "online": manager.is_online(uid) or _recent_online(u.get("last_seen")),
                 "last_seen": _iso(u.get("last_seen")) or None,
             }
 

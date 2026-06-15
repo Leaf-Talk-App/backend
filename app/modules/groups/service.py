@@ -329,16 +329,32 @@ async def update_group(current_user, data):
     if current_user["sub"] not in group.get("admins", []):
         return {"error": "Apenas administradores podem editar o grupo"}
 
+    # Só registra mudanças REAIS (compara com o valor atual) — antes reportava
+    # "removeu descrição/liberou envio" mesmo quando só o nome mudou, porque o
+    # front manda os 3 campos sempre.
     updates = {}
+    changes = []
     if data.name is not None:
         name = data.name.strip()
         if not name:
             return {"error": "Nome do grupo é obrigatório"}
-        updates["name"] = name
+        if name != (group.get("name") or ""):
+            updates["name"] = name
+            changes.append(f'renomeou o grupo para "{name}"')
     if data.description is not None:
-        updates["description"] = data.description.strip()
+        desc = data.description.strip()
+        if desc != (group.get("description") or ""):
+            updates["description"] = desc
+            changes.append("alterou a descrição" if desc else "removeu a descrição")
     if data.only_admins_can_send is not None:
-        updates["only_admins_can_send"] = bool(data.only_admins_can_send)
+        new_rule = bool(data.only_admins_can_send)
+        if new_rule != bool(group.get("only_admins_can_send")):
+            updates["only_admins_can_send"] = new_rule
+            changes.append(
+                "ativou: só admins enviam mensagens"
+                if new_rule
+                else "liberou o envio de mensagens para todos"
+            )
 
     if not updates:
         return _serialize_group(group, group.get("last_message"))
@@ -349,19 +365,7 @@ async def update_group(current_user, data):
     updated = await db.groups.find_one({"_id": oid})
     serialized = _serialize_group(updated, updated.get("last_message"))
 
-    # Mensagem de sistema descrevendo a alteração.
     actor = await _display_name(db, current_user["sub"])
-    changes = []
-    if "name" in updates:
-        changes.append(f'renomeou o grupo para "{updates["name"]}"')
-    if "description" in updates:
-        changes.append("alterou a descrição" if updates["description"] else "removeu a descrição")
-    if "only_admins_can_send" in updates:
-        changes.append(
-            "ativou: só admins enviam mensagens"
-            if updates["only_admins_can_send"]
-            else "liberou o envio de mensagens para todos"
-        )
     if changes:
         await _system_message(db, updated, f"{actor} {'; '.join(changes)}.")
 

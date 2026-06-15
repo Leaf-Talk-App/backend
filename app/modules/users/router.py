@@ -11,6 +11,7 @@ from .service import (
     block_user,
     unblock_user,
     list_blocked_users,
+    heartbeat,
 )
 from .serializers import serialize_user
 
@@ -50,6 +51,11 @@ async def unblock(user_id: str, user=Depends(get_current_user)):
 @router.get("/blocked")
 async def blocked(user=Depends(get_current_user)):
     return await list_blocked_users(user)
+
+
+@router.post("/heartbeat")
+async def heartbeat_route(user=Depends(get_current_user)):
+    return await heartbeat(user)
 
 
 @router.patch("/me")

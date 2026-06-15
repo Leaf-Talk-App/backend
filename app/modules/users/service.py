@@ -1,8 +1,36 @@
 import re
+from datetime import datetime, timezone, timedelta
 from app.core.database import get_database
 from app.core.websocket import manager
 from bson import ObjectId
 from fastapi import HTTPException
+
+# Janela para considerar "online" por atividade recente (heartbeat HTTP), além
+# da conexão WebSocket — que no Render free pode cair sem o usuário sair.
+_ONLINE_WINDOW = timedelta(seconds=60)
+
+
+def is_user_online(doc) -> bool:
+    """Online se há WS ativo OU last_seen dentro da janela (heartbeat HTTP)."""
+    uid = str(doc.get("_id"))
+    if manager.is_online(uid):
+        return True
+    ls = doc.get("last_seen")
+    if not ls or isinstance(ls, str):
+        return False
+    if ls.tzinfo is None:
+        ls = ls.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - ls < _ONLINE_WINDOW
+
+
+async def heartbeat(user_data):
+    """Mantém o usuário 'online' mesmo se o WebSocket cair (ping a cada ~25s)."""
+    db = get_database()
+    await db.users.update_one(
+        {"email": user_data["email"]},
+        {"$set": {"online": True, "last_seen": datetime.now(timezone.utc)}},
+    )
+    return {"ok": True}
 
 async def get_me(user_data):
     db = get_database()
@@ -51,11 +79,8 @@ async def search_users(current_user, query):
 
     term = (query or "").strip()
 
-    blocked = await db.blocked_users.find({
-        "blocked_user_id": current_user["sub"]
-    }).to_list(100)
-
-    blocked_ids = [str(x["user_id"]) for x in blocked]
+    # Bloqueio NÃO esconde o perfil da busca (o usuário pediu para apenas
+    # impedir a entrega de mensagens, mantendo o perfil visível).
 
     # inclui searchable=True OU sem o campo (legados); só searchable=False fica de fora.
     # Só contas com e-mail verificado aparecem (não-verificadas não logam nem
@@ -81,13 +106,8 @@ async def search_users(current_user, query):
     parsed = []
 
     for user in users:
-
-        if str(user["_id"]) in blocked_ids:
-            continue
-
+        user["online"] = is_user_online(user)
         user["_id"] = str(user["_id"])
-        user["online"] = manager.is_online(user["_id"])
-
         parsed.append(user)
 
     return parsed
@@ -178,9 +198,9 @@ async def get_user_by_id(user_id: str):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # online = WS ativo OU heartbeat recente (flag do banco pode ficar presa)
+    user["online"] = is_user_online(user)
     user["_id"] = str(user["_id"])
-    # verdade = conexões ativas em memória (flag do banco pode ficar presa em True)
-    user["online"] = manager.is_online(user["_id"])
     return user
 
 
