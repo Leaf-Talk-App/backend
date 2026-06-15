@@ -324,6 +324,7 @@ async def _prepare_action(current_user, data, user_tz):
         "content": content,
         "kind": "schedule" if is_schedule else "send",
         "run_at": run_at,
+        "scheduled_label": scheduled_label,  # p/ reexibir o card depois
         "confirmed": False,
         "done": False,
         "created_at": now,
@@ -345,6 +346,39 @@ async def _prepare_action(current_user, data, user_tz):
         else f'Quero confirmar: enviar "{content}" para {display}? Toque em Confirmar abaixo.'
     )
     return card, reply_text
+
+
+async def get_pending_tasks(current_user):
+    """Cards de ações ainda não confirmadas — p/ reexibir ao reabrir a tela do
+    Humberto (antes o card sumia se o usuário saísse e voltasse)."""
+    db = get_database()
+    tasks = await db.scheduled_messages.find(
+        {"user_id": current_user["sub"], "confirmed": False, "done": False}
+    ).sort("created_at", 1).to_list(20)
+    cards = []
+    for t in tasks:
+        cards.append({
+            "task_id": str(t["_id"]),
+            "type": t.get("kind", "send"),
+            "title": "Agendar mensagem" if t.get("kind") == "schedule" else "Enviar mensagem",
+            "recipient": t.get("to"),
+            "body": t.get("content"),
+            "scheduledFor": t.get("scheduled_label"),
+        })
+    return cards
+
+
+async def cancel_task(current_user, task_id):
+    """Cancela (remove) uma ação pendente não confirmada."""
+    db = get_database()
+    try:
+        oid = ObjectId(task_id)
+    except Exception:
+        return {"error": "invalid task id"}
+    await db.scheduled_messages.delete_one(
+        {"_id": oid, "user_id": current_user["sub"], "confirmed": False, "done": False}
+    )
+    return {"message": "cancelado"}
 
 
 def _parse_local_datetime(value, user_tz):

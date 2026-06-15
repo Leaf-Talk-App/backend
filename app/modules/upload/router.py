@@ -9,7 +9,9 @@ Estratégia de storage:
 """
 import os
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi.responses import FileResponse, Response
 from app.dependencies import get_current_user
 from app.core.cloudinary_service import is_cloudinary_enabled, upload_bytes, upload_bytes_raw
 
@@ -91,6 +93,37 @@ async def upload_file_named(file: UploadFile = File(...)):
         raise HTTPException(status_code=413, detail="Arquivo muito grande (máx 10 MB)")
     url = _upload_file(content, file.filename or "")
     return {"url": url}
+
+
+@router.get("/download")
+async def download_proxy(url: str = Query(...), name: str = Query("arquivo")):
+    """Proxy de download: busca o arquivo (Cloudinary/local) e devolve com
+    Content-Disposition: attachment → o navegador abre o "salvar como" e nunca
+    tenta renderizar inline (corrige PDF/zip que davam erro 400/visualizador)."""
+    safe_name = (name or "arquivo").replace('"', "").replace("\n", " ").strip() or "arquivo"
+
+    # arquivo local (dev)
+    if url.startswith("/uploads/"):
+        path = url.lstrip("/")
+        if not os.path.exists(path):
+            raise HTTPException(status_code=404, detail="Arquivo não encontrado")
+        return FileResponse(path, filename=safe_name)
+
+    # só permite buscar do Cloudinary (evita SSRF)
+    if not url.startswith("https://res.cloudinary.com/"):
+        raise HTTPException(status_code=400, detail="URL não permitida")
+
+    try:
+        async with httpx.AsyncClient(timeout=60, follow_redirects=True) as cx:
+            r = await cx.get(url)
+    except Exception:
+        raise HTTPException(status_code=502, detail="Falha ao buscar o arquivo")
+    if r.status_code != 200:
+        raise HTTPException(status_code=502, detail="Falha ao buscar o arquivo")
+
+    media = r.headers.get("content-type", "application/octet-stream").split(";")[0]
+    headers = {"Content-Disposition": f'attachment; filename="{safe_name}"'}
+    return Response(content=r.content, media_type=media, headers=headers)
 
 
 @router.post("/avatar")

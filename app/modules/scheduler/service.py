@@ -77,16 +77,17 @@ async def process_followups():
 
 def start_scheduler():
 
+    # a cada 20s → mensagem agendada chega quase na hora (antes era 1 min)
     scheduler.add_job(
         process_scheduled_messages,
         "interval",
-        minutes=1
+        seconds=20,
     )
 
     scheduler.add_job(
         process_followups,
         "interval",
-        minutes=1
+        seconds=30,
     )
 
     scheduler.start()

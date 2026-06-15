@@ -26,7 +26,8 @@ async def deliver_direct_message(sender_id: str, receiver_id: str, content: str)
         })
         chat_id = str(result.inserted_id)
 
-    status = "delivered" if manager.is_online(receiver_id) else "sent"
+    is_self = sender_id == receiver_id
+    status = "read" if is_self else ("delivered" if manager.is_online(receiver_id) else "sent")
 
     msg = {
         "chat_id": chat_id,
@@ -36,7 +37,8 @@ async def deliver_direct_message(sender_id: str, receiver_id: str, content: str)
         "type": "text",
         "file_url": None,
         "status": status,
-        "read": False,
+        # auto-conversa (agendar pra si): já lida → não vira badge/"nova"
+        "read": is_self,
         "read_by": [],
         "created_at": now,
     }

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from app.dependencies import get_current_user
 from .schemas import AIMessageSchema
-from .service import ask_ai, confirm_task, get_ai_history, clear_ai_history
+from .service import ask_ai, confirm_task, get_ai_history, clear_ai_history, get_pending_tasks, cancel_task
 
 router = APIRouter(
     prefix="/ai",
@@ -28,6 +28,16 @@ async def confirm(
     user=Depends(get_current_user)
 ):
     return await confirm_task(user, task_id)
+
+
+@router.get("/pending")
+async def pending(user=Depends(get_current_user)):
+    return await get_pending_tasks(user)
+
+
+@router.post("/cancel/{task_id}")
+async def cancel(task_id: str, user=Depends(get_current_user)):
+    return await cancel_task(user, task_id)
 
 @router.get("/history")
 async def history(

@@ -301,6 +301,10 @@ async def my_chats(current_user):
         chat_id = str(chat["_id"])
         if user_id in (chat.get("deleted_by") or []):
             continue
+        # Conversa sem nenhuma mensagem ainda NÃO aparece (nem pra quem criou,
+        # nem pro outro). Só surge quando a 1ª mensagem é enviada.
+        if not chat.get("last_message"):
+            continue
         settings = settings_by_id.get(chat_id)
         if settings and settings.get("hidden"):
             continue
