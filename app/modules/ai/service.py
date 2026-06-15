@@ -157,11 +157,31 @@ async def ask_ai(prompt: str, current_user, attachment_url: str = None, attachme
         "<DATA>", datetime.now(user_tz).strftime("%d/%m/%Y %H:%M")
     ) + context_block(prompt)
 
+    # Histórico recente → o Humberto mantém o contexto da conversa (antes era
+    # stateless e "puxava outro assunto" quando o usuário respondia a algo).
+    history_msgs = []
+    try:
+        hist = await db.ai_conversations.find(
+            {"user_id": current_user["sub"]}
+        ).sort("created_at", -1).to_list(10)
+        hist.reverse()
+        for h in hist:
+            content = (h.get("content") or "").strip()
+            if not content:
+                continue
+            role = "assistant" if h.get("role") == "assistant" else "user"
+            history_msgs.append({"role": role, "content": content})
+        # a API exige começar por 'user'
+        while history_msgs and history_msgs[0]["role"] != "user":
+            history_msgs.pop(0)
+    except Exception:
+        history_msgs = []
+
     response = await client.messages.create(
         model=AI_MODEL,
         max_tokens=4096,
         system=system_prompt,
-        messages=[{"role": "user", "content": user_content}],
+        messages=history_msgs + [{"role": "user", "content": user_content}],
     )
 
     text = "".join(b.text for b in response.content if b.type == "text").strip()

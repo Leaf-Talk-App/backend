@@ -32,6 +32,20 @@ async def heartbeat(user_data):
     )
     return {"ok": True}
 
+
+async def _blocked_id_set(db, me: str) -> set:
+    """IDs com bloqueio em qualquer direção com 'me' (não veem o online um do
+    outro)."""
+    rows = await db.blocked_users.find(
+        {"$or": [{"user_id": me}, {"blocked_user_id": me}]}
+    ).to_list(1000)
+    ids = set()
+    for r in rows:
+        ids.add(r.get("user_id"))
+        ids.add(r.get("blocked_user_id"))
+    ids.discard(me)
+    return ids
+
 async def get_me(user_data):
     db = get_database()
 
@@ -103,11 +117,15 @@ async def search_users(current_user, query):
 
     users = await db.users.find(filters, {"password": 0}).to_list(50)
 
+    blocked_ids = await _blocked_id_set(db, current_user["sub"])
+
     parsed = []
 
     for user in users:
-        user["online"] = is_user_online(user)
-        user["_id"] = str(user["_id"])
+        uid = str(user["_id"])
+        # bloqueio (qualquer direção) → nenhum dos dois vê o online do outro
+        user["online"] = False if uid in blocked_ids else is_user_online(user)
+        user["_id"] = uid
         parsed.append(user)
 
     return parsed
@@ -185,7 +203,7 @@ async def list_blocked_users(current_user):
     return result
 
 
-async def get_user_by_id(user_id: str):
+async def get_user_by_id(user_id: str, viewer_id: str | None = None):
     db = get_database()
 
     try:
@@ -198,8 +216,13 @@ async def get_user_by_id(user_id: str):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # online = WS ativo OU heartbeat recente (flag do banco pode ficar presa)
-    user["online"] = is_user_online(user)
+    # online = WS ativo OU heartbeat recente (flag do banco pode ficar presa).
+    # Se há bloqueio (qualquer direção) com quem está vendo → online sempre False.
+    online = is_user_online(user)
+    if viewer_id and online:
+        if await _blocked_id_set(db, viewer_id) & {user_id}:
+            online = False
+    user["online"] = online
     user["_id"] = str(user["_id"])
     return user
 

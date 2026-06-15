@@ -263,6 +263,15 @@ async def my_chats(current_user):
             other_id_by_chat[str(chat["_id"])] = oid
             other_ids.add(oid)
 
+    # bloqueio (qualquer direção) → não mostrar online
+    blocked_ids = set()
+    for r in await db.blocked_users.find(
+        {"$or": [{"user_id": user_id}, {"blocked_user_id": user_id}]}
+    ).to_list(1000):
+        blocked_ids.add(r.get("user_id"))
+        blocked_ids.add(r.get("blocked_user_id"))
+    blocked_ids.discard(user_id)
+
     # 1 query: dados básicos dos outros participantes (embed → sem N+1 no front)
     users_by_id = {}
     valid_oids = [ObjectId(i) for i in other_ids if ObjectId.is_valid(i)]
@@ -271,13 +280,14 @@ async def my_chats(current_user):
             {"_id": {"$in": valid_oids}}, {"password": 0}
         ).to_list(2000):
             uid = str(u["_id"])
+            online = (manager.is_online(uid) or _recent_online(u.get("last_seen"))) and uid not in blocked_ids
             users_by_id[uid] = {
                 "id": uid,
                 "_id": uid,
                 "name": u.get("name", ""),
                 "display_name": u.get("display_name"),
                 "avatar": u.get("avatar"),
-                "online": manager.is_online(uid) or _recent_online(u.get("last_seen")),
+                "online": online,
                 "last_seen": _iso(u.get("last_seen")) or None,
             }
 

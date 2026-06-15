@@ -83,4 +83,4 @@ async def put_me(data: UpdateUserSchema, current_user=Depends(get_current_user))
 
 @router.get("/{user_id}")
 async def get_user(user_id: str, user=Depends(get_current_user)):
-    return await get_user_by_id(user_id)
+    return await get_user_by_id(user_id, viewer_id=user["sub"])
