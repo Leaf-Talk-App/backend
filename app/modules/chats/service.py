@@ -229,7 +229,11 @@ async def my_chats(current_user):
     user_id = current_user["sub"]
 
     chats = await db.chats.find({"participants": user_id}).to_list(200)
-    groups = await db.groups.find({"members": user_id}).to_list(200)
+    # inclui grupos onde ainda é membro OU foi removido (mantém na lista até
+    # apagar — estilo WhatsApp), exceto os que o próprio usuário já apagou.
+    groups = await db.groups.find(
+        {"$or": [{"members": user_id}, {"removed_members": user_id}]}
+    ).to_list(200)
 
     chat_ids = [str(c["_id"]) for c in chats]
     group_ids = [str(g["_id"]) for g in groups]
@@ -316,6 +320,9 @@ async def my_chats(current_user):
 
     for g in groups:
         gid = str(g["_id"])
+        # grupo apagado pelo próprio usuário → não lista mais
+        if user_id in (g.get("deleted_by") or []):
+            continue
         settings = settings_by_id.get(gid)
         if settings and settings.get("hidden"):
             continue
@@ -326,6 +333,8 @@ async def my_chats(current_user):
             "photo": g.get("photo"),
             "members": g.get("members", []),
             "member_count": len(g.get("members", [])),
+            # removido do grupo mas ainda na lista (só-leitura até apagar)
+            "removed": user_id not in (g.get("members") or []),
             "updated_at": _iso(g.get("updated_at")),
             "last_message": _serialize_last_message(g.get("last_message")),
             "pinned": settings.get("pinned", False) if settings else False,

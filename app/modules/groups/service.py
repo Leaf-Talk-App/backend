@@ -158,7 +158,11 @@ async def get_group(current_user, group_id):
     if not group:
         return {"error": "Grupo não encontrado"}
 
-    if current_user["sub"] not in group.get("members", []):
+    uid = current_user["sub"]
+    # ex-membros (removidos/que saíram) mantêm acesso de LEITURA até apagar.
+    if uid not in group.get("members", []) and uid not in group.get("removed_members", []):
+        return {"error": "Você não faz parte deste grupo"}
+    if uid in (group.get("deleted_by") or []):
         return {"error": "Você não faz parte deste grupo"}
 
     return _serialize_group(group, group.get("last_message"))
@@ -172,7 +176,13 @@ async def get_group_messages(current_user, group_id, skip: int = 0, limit: int =
         return []
 
     group = await db.groups.find_one({"_id": oid})
-    if not group or current_user["sub"] not in group.get("members", []):
+    uid = current_user["sub"]
+    if not group:
+        return []
+    # ex-membro mantém leitura do histórico; quem apagou não vê mais.
+    if uid not in group.get("members", []) and uid not in group.get("removed_members", []):
+        return []
+    if uid in (group.get("deleted_by") or []):
         return []
 
     # Página 0 = mais recentes (desc + skip), depois inverte para ordem cronológica.
@@ -429,7 +439,11 @@ async def add_member(current_user, data):
     already = data.user_id in group.get("members", [])
     await db.groups.update_one(
         {"_id": oid},
-        {"$addToSet": {"members": data.user_id}},
+        {
+            "$addToSet": {"members": data.user_id},
+            # readiciona limpa o estado de ex-membro/apagado
+            "$pull": {"removed_members": data.user_id, "deleted_by": data.user_id},
+        },
     )
     if not already:
         updated = await db.groups.find_one({"_id": oid})
@@ -454,9 +468,14 @@ async def remove_member(current_user, data):
         return {"error": "Apenas administradores podem remover membros"}
 
     target = await _display_name(db, data.user_id)
+    # remove dos membros, mas marca como ex-membro → o removido mantém o grupo
+    # na lista (só-leitura) até apagar por conta própria (estilo WhatsApp).
     await db.groups.update_one(
         {"_id": oid},
-        {"$pull": {"members": data.user_id, "admins": data.user_id}},
+        {
+            "$pull": {"members": data.user_id, "admins": data.user_id},
+            "$addToSet": {"removed_members": data.user_id},
+        },
     )
     # grupo (com members atualizados) para notificar quem ficou
     updated = await db.groups.find_one({"_id": oid})
@@ -472,18 +491,25 @@ async def leave_group(current_user, group_id):
     if not oid:
         return {"error": "Grupo inválido"}
 
-    actor = await _display_name(db, current_user["sub"])
+    uid = current_user["sub"]
+    group = await db.groups.find_one({"_id": oid})
+    if not group:
+        return {"error": "Grupo não encontrado"}
+    was_member = uid in group.get("members", [])
+    actor = await _display_name(db, uid)
+    # Sair/apagar = remove o grupo da MINHA lista (deleted_by) e me tira de
+    # membros/ex-membros. Quem foi removido usa isto para apagar quando quiser.
     await db.groups.update_one(
         {"_id": oid},
-        {"$pull": {
-            "members": current_user["sub"],
-            "admins": current_user["sub"],
-        }},
+        {
+            "$pull": {"members": uid, "admins": uid, "removed_members": uid},
+            "$addToSet": {"deleted_by": uid},
+        },
     )
-    # avisa quem ficou (grupo já sem o usuário que saiu)
-    updated = await db.groups.find_one({"_id": oid})
-    if updated:
-        await _system_message(db, updated, f"{actor} saiu do grupo.")
+    if was_member:
+        updated = await db.groups.find_one({"_id": oid})
+        if updated:
+            await _system_message(db, updated, f"{actor} saiu do grupo.")
     return {"message": "Você saiu do grupo"}
 
 
@@ -497,7 +523,10 @@ async def join_by_code(current_user, code):
     already = current_user["sub"] in group.get("members", [])
     await db.groups.update_one(
         {"invite_code": code},
-        {"$addToSet": {"members": current_user["sub"]}},
+        {
+            "$addToSet": {"members": current_user["sub"]},
+            "$pull": {"removed_members": current_user["sub"], "deleted_by": current_user["sub"]},
+        },
     )
     if not already:
         updated = await db.groups.find_one({"invite_code": code})
