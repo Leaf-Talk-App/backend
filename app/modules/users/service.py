@@ -164,6 +164,17 @@ async def unblock_user(current_user, user_id):
         "blocked_user_id": user_id
     })
 
+    # Reexibe a conversa com esse contato (bloqueios antigos a marcavam como
+    # hidden). Sem isso a conversa só abria pela busca, não voltava aos chats.
+    participants = sorted([current_user["sub"], user_id])
+    chat = await db.chats.find_one({"participants": participants})
+    if chat:
+        await db.user_chat_settings.update_one(
+            {"user_id": current_user["sub"], "chat_id": str(chat["_id"])},
+            {"$set": {"hidden": False}},
+            upsert=True,
+        )
+
     return {"message": "User unblocked"}
 
 
