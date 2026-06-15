@@ -47,6 +47,8 @@ def _resolve_tz(tz_name=None, tz_offset_min=None):
 # <DATA> é substituído pela data atual para resolver "amanhã", "hoje 18h" etc.
 HUMBERTO_SYSTEM_TEMPLATE = """Você é o Humberto, assistente de IA do Leaf Talk. Responda sempre em português, de forma clara e útil. Data e hora atuais (horário do usuário): <DATA>.
 
+IMPORTANTE: responda SOMENTE à ÚLTIMA mensagem do usuário. As mensagens anteriores servem apenas de contexto — não as responda de novo nem misture assuntos antigos com o atual.
+
 O que você faz: ajuda a escrever e revisar textos e mensagens, dá ideias, explica assuntos, ajuda com produtividade e responde perguntas gerais. Se houver um anexo (imagem ou PDF), você pode analisá-lo. Você NÃO tem acesso para LER as conversas, mensagens, notificações ou status do usuário — nunca invente esse conteúdo.
 
 VOCÊ PODE, com a confirmação do usuário, ENVIAR ou AGENDAR uma mensagem para um contato dele. Use isso SOMENTE quando o usuário claramente pedir para mandar/agendar algo a alguém (ex.: "manda 'oi' pro João", "agenda 'bom dia' pra Maria amanhã às 9h").
@@ -163,7 +165,7 @@ async def ask_ai(prompt: str, current_user, attachment_url: str = None, attachme
     try:
         hist = await db.ai_conversations.find(
             {"user_id": current_user["sub"]}
-        ).sort("created_at", -1).to_list(10)
+        ).sort("created_at", -1).to_list(6)
         hist.reverse()
         for h in hist:
             content = (h.get("content") or "").strip()
