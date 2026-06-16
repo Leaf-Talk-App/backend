@@ -3,9 +3,13 @@ from jose import jwt
 from datetime import datetime, timedelta
 from app.core.config import settings
 
+# bcrypt (fator de custo 12) para senhas novas. pbkdf2_sha256 fica na lista só
+# para VERIFICAR hashes antigos (usuários já cadastrados continuam logando);
+# deprecated="auto" marca os antigos p/ re-hash quando possível.
 pwd_context = CryptContext(
-    schemes=["pbkdf2_sha256"],
-    deprecated="auto"
+    schemes=["bcrypt", "pbkdf2_sha256"],
+    deprecated="auto",
+    bcrypt__rounds=12,
 )
 
 def hash_password(password: str):
