@@ -236,14 +236,3 @@ async def get_user_by_id(user_id: str, viewer_id: str | None = None):
     user["online"] = online
     user["_id"] = str(user["_id"])
     return user
-
-
-async def get_user_status(user_id):
-    db = get_database()
-
-    user = await db.users.find_one(
-        {"_id": user_id},
-        {"online": 1, "last_seen": 1}
-    )
-
-    return user
