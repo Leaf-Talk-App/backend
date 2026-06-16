@@ -284,7 +284,6 @@ async def _prepare_action(current_user, data, user_tz):
     db = get_database()
     to_name = (data.get("to") or "").strip()
     content = (data.get("content") or "").strip()
-    is_schedule = data.get("action") == "schedule_message"
 
     contact = await _resolve_contact(to_name)
     if not contact:
@@ -306,16 +305,34 @@ async def _prepare_action(current_user, data, user_tz):
     display = contact.get("display_name") or contact.get("name") or to_name
     now = datetime.now(timezone.utc)
 
+    # AGENDAR vs ENVIAR é decidido pela presença de datetime VÁLIDO (não pelo
+    # nome da ação) — o modelo às vezes manda "send_message" mesmo no agendar,
+    # o que fazia enviar na hora ao confirmar.
+    parsed_dt = _parse_local_datetime(data.get("datetime"), user_tz) if data.get("datetime") else None
+    wants_schedule = data.get("action") == "schedule_message" or bool(data.get("datetime"))
+
     run_at = now
     scheduled_label = None
-    if is_schedule:
-        run_at = _parse_local_datetime(data.get("datetime"), user_tz)
-        if not run_at:
+    is_schedule = False
+    if wants_schedule:
+        if not parsed_dt:
             return None, (
                 "Para agendar eu preciso da data e hora. Me diga, por exemplo, "
                 '"amanhã às 9h".'
             )
+        if parsed_dt <= now:
+            return None, (
+                "Esse horário já passou. Me diga um horário no futuro para eu agendar."
+            )
+        is_schedule = True
+        run_at = parsed_dt
         scheduled_label = run_at.astimezone(user_tz).strftime("%d/%m/%Y às %H:%M")
+
+    # Remove pendências anteriores ainda não confirmadas → evita reaproveitar o
+    # texto/horário do agendamento anterior (card antigo "fantasma").
+    await db.scheduled_messages.delete_many(
+        {"user_id": current_user["sub"], "confirmed": False, "done": False}
+    )
 
     pending = {
         "user_id": current_user["sub"],
