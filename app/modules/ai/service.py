@@ -232,11 +232,14 @@ def _try_parse_action(text: str):
     return None
 
 
-async def _resolve_contact(name: str):
-    """Acha o usuário-alvo pelo nome/display_name (case-insensitive, exato)."""
+async def _resolve_contacts(name: str):
+    """Todos os usuários cujo nome/display_name/e-mail bate exatamente
+    (case-insensitive). Inclui e-mail p/ o usuário desambiguar homônimos."""
     db = get_database()
     rx = {"$regex": f"^{re.escape(name.strip())}$", "$options": "i"}
-    return await db.users.find_one({"$or": [{"name": rx}, {"display_name": rx}]})
+    return await db.users.find(
+        {"$or": [{"name": rx}, {"display_name": rx}, {"email": rx}]}
+    ).to_list(50)
 
 
 def _name_of(user) -> str:
@@ -285,8 +288,8 @@ async def _prepare_action(current_user, data, user_tz):
     to_name = (data.get("to") or "").strip()
     content = (data.get("content") or "").strip()
 
-    contact = await _resolve_contact(to_name)
-    if not contact:
+    matches = await _resolve_contacts(to_name)
+    if not matches:
         # Sem match exato → sugere parecidos entre os contatos e PERGUNTA antes
         # (nunca escolhe sozinho). O usuário confirma o nome e o Humberto refaz.
         contacts = await _user_contacts(current_user["sub"])
@@ -301,6 +304,25 @@ async def _prepare_action(current_user, data, user_tz):
             return None, ask
         return None, f'Não encontrei o contato "{to_name}". Confira o nome e tente de novo.'
 
+    if len(matches) > 1:
+        # Mais de um contato com o MESMO nome → nunca escolhe sozinho. Prefere
+        # quem o usuário já conversa; se ainda houver dúvida, pede o e-mail.
+        my_contacts = await _user_contacts(current_user["sub"])
+        my_ids = {str(u["_id"]) for u in my_contacts}
+        known = [m for m in matches if str(m["_id"]) in my_ids]
+        if len(known) == 1:
+            matches = known
+        else:
+            pool = known or matches
+            opts = "; ".join(
+                f'{_name_of(u)} ({u.get("email") or "sem e-mail"})' for u in pool[:5]
+            )
+            return None, (
+                f'Encontrei mais de um contato chamado "{to_name}": {opts}. '
+                "Me diga o e-mail de quem deve receber para eu não errar a pessoa."
+            )
+
+    contact = matches[0]
     receiver_id = str(contact["_id"])
     display = contact.get("display_name") or contact.get("name") or to_name
     now = datetime.now(timezone.utc)
