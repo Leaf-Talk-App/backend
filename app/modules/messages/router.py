@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from app.dependencies import get_current_user
+from app.core.ratelimit import limiter
 from .schemas import (
     SendMessageSchema,
     EditMessageSchema
@@ -23,7 +24,9 @@ router = APIRouter(
 
 
 @router.post("/send")
+@limiter.limit("60/minute")
 async def send(
+    request: Request,
     data: SendMessageSchema,
     user=Depends(get_current_user)
 ):

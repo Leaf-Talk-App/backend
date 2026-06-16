@@ -1,6 +1,7 @@
-from fastapi import APIRouter, status, Depends, BackgroundTasks
+from fastapi import APIRouter, status, Depends, BackgroundTasks, Request
 from urllib.parse import urlencode
 from app.core.email import send_email
+from app.core.ratelimit import limiter
 from app.modules.auth.email_templates import (
     verification_email_template,
     reset_password_email_template,
@@ -33,7 +34,8 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-async def register(data: RegisterSchema, background_tasks: BackgroundTasks, db=Depends(get_database)):
+@limiter.limit("5/minute")
+async def register(request: Request, data: RegisterSchema, background_tasks: BackgroundTasks, db=Depends(get_database)):
     result = await register_user(data, db)
     code = result.pop("verification_code")
 
@@ -49,7 +51,8 @@ async def register(data: RegisterSchema, background_tasks: BackgroundTasks, db=D
 
 
 @router.post("/login")
-async def login(data: LoginSchema, db=Depends(get_database)):
+@limiter.limit("5/minute")
+async def login(request: Request, data: LoginSchema, db=Depends(get_database)):
     return await login_user(data, db)
 
 
@@ -59,7 +62,8 @@ async def verify_email(data: VerifyEmailSchema, db=Depends(get_database)):
 
 
 @router.post("/resend-code")
-async def resend_code(data: ResendCodeSchema, background_tasks: BackgroundTasks, db=Depends(get_database)):
+@limiter.limit("4/minute")
+async def resend_code(request: Request, data: ResendCodeSchema, background_tasks: BackgroundTasks, db=Depends(get_database)):
     result = await resend_verification_code(data.email, db)
 
     if "code" in result:
@@ -74,7 +78,8 @@ async def resend_code(data: ResendCodeSchema, background_tasks: BackgroundTasks,
 
 
 @router.post("/forgot-password")
-async def forgot_password(data: ForgotPasswordSchema, background_tasks: BackgroundTasks, db=Depends(get_database)):
+@limiter.limit("4/minute")
+async def forgot_password(request: Request, data: ForgotPasswordSchema, background_tasks: BackgroundTasks, db=Depends(get_database)):
     result = await request_password_reset(data.email, db)
 
     if "token" in result:
@@ -90,7 +95,8 @@ async def forgot_password(data: ForgotPasswordSchema, background_tasks: Backgrou
 
 
 @router.post("/reset-password")
-async def reset_password_endpoint(data: ResetPasswordSchema, db=Depends(get_database)):
+@limiter.limit("5/minute")
+async def reset_password_endpoint(request: Request, data: ResetPasswordSchema, db=Depends(get_database)):
     return await reset_password(data.token, data.password, db)
 
 

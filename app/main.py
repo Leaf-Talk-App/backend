@@ -1,10 +1,13 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
+from app.core.ratelimit import limiter
 from app.core.database import connect_to_mongo, close_mongo_connection
 from app.modules.auth.router import router as auth_router
 from app.modules.users.router import router as users_router
@@ -16,6 +19,22 @@ from app.modules.groups.router import router as groups_router
 from app.modules.websocket.router import router as websocket_router
 
 app = FastAPI(title=settings.APP_NAME)
+
+# ── Rate limiting (slowapi) ───────────────────────────────────────────────────
+# Protege login/registro/recuperação/envio de mensagem de brute-force e abuso.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+# ── Headers de segurança ──────────────────────────────────────────────────────
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
+
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
 # allow_origins=["*"] + allow_credentials=True é rejeitado pelos browsers.
