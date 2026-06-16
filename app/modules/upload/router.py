@@ -9,6 +9,7 @@ Estratégia de storage:
 """
 import os
 import uuid
+import mimetypes
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from fastapi.responses import FileResponse, Response
@@ -63,11 +64,14 @@ def _upload_audio(content: bytes, content_type: str) -> str:
 
 
 def _upload_file(content: bytes, filename: str) -> str:
-    # Preserva a extensão original do arquivo para o download voltar no formato
-    # certo (PDF, DOCX, XLSX…). Raw sem extensão → "formato nada a ver".
+    # IMPORTANTE: NÃO colocar a extensão real no public_id do Cloudinary.
+    # O Cloudinary BLOQUEIA a entrega de .pdf/.zip por padrão (HTTP 400). Sem a
+    # extensão, o arquivo é servido como raw genérico (liberado) — o download
+    # volta com o nome/tipo certos pelo proxy /upload/download (Content-
+    # Disposition). DOCX já funcionava; assim PDF/ZIP também funcionam.
     ext = os.path.splitext(filename or "")[1].lower() or ".bin"
     if is_cloudinary_enabled():
-        return upload_bytes_raw(content, folder="leaf/files", ext=ext)
+        return upload_bytes_raw(content, folder="leaf/files", ext="")
     safe = filename or f"{uuid.uuid4().hex}{ext}"
     path = os.path.join(UPLOAD_DIR, safe)
     with open(path, "wb") as f:
@@ -121,7 +125,9 @@ async def download_proxy(url: str = Query(...), name: str = Query("arquivo")):
     if r.status_code != 200:
         raise HTTPException(status_code=502, detail="Falha ao buscar o arquivo")
 
-    media = r.headers.get("content-type", "application/octet-stream").split(";")[0]
+    # tipo pelo NOME original (o raw do Cloudinary vem sem extensão/genérico)
+    guessed, _ = mimetypes.guess_type(safe_name)
+    media = guessed or r.headers.get("content-type", "application/octet-stream").split(";")[0]
     headers = {"Content-Disposition": f'attachment; filename="{safe_name}"'}
     return Response(content=r.content, media_type=media, headers=headers)
 
