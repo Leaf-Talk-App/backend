@@ -27,9 +27,38 @@ ALLOWED_AUDIO_TYPES = {
     "audio/wav", "audio/mp4", "audio/x-m4a",
 }
 
+# Lista branca p/ o upload genérico de arquivo: imagens, pdf, docx/doc, zip, txt.
+ALLOWED_FILE_TYPES = ALLOWED_IMAGE_TYPES | {
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # docx
+    "application/msword",  # doc
+    "application/zip",
+    "application/x-zip-compressed",
+    "text/plain",
+}
+
+# Extensões executáveis/perigosas — bloqueadas independente do MIME informado.
+BLOCKED_EXTS = {
+    ".exe", ".sh", ".bat", ".cmd", ".com", ".js", ".mjs", ".jar", ".msi",
+    ".dll", ".scr", ".ps1", ".vbs", ".apk", ".app", ".bin", ".deb", ".rpm",
+}
+
 MAX_IMAGE_SIZE = 5 * 1024 * 1024    # 5 MB
 MAX_AUDIO_SIZE = 20 * 1024 * 1024   # 20 MB
 MAX_FILE_SIZE  = 10 * 1024 * 1024   # 10 MB
+
+
+def _validate_file(file: UploadFile, content: bytes) -> None:
+    """Valida tamanho, bloqueia executáveis (por extensão) e checa o MIME contra
+    a lista branca. Não confia só na extensão — usa o content_type também."""
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="Arquivo muito grande (máx 10 MB)")
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext in BLOCKED_EXTS:
+        raise HTTPException(status_code=415, detail=f"Tipo de arquivo não permitido: {ext}")
+    ctype = (file.content_type or "").split(";")[0].strip().lower()
+    if ctype and ctype not in ALLOWED_FILE_TYPES:
+        raise HTTPException(status_code=415, detail=f"Tipo de arquivo não suportado: {ctype}")
 
 EXT_MAP = {
     "image/jpeg": ".jpg", "image/png": ".png",
@@ -72,7 +101,9 @@ def _upload_file(content: bytes, filename: str) -> str:
     ext = os.path.splitext(filename or "")[1].lower() or ".bin"
     if is_cloudinary_enabled():
         return upload_bytes_raw(content, folder="leaf/files", ext="")
-    safe = filename or f"{uuid.uuid4().hex}{ext}"
+    # Nome SEMPRE em UUID gerado pelo servidor, nunca o nome do usuário — evita
+    # path traversal (../) e colisão de nomes.
+    safe = f"{uuid.uuid4().hex}{ext}"
     path = os.path.join(UPLOAD_DIR, safe)
     with open(path, "wb") as f:
         f.write(content)
@@ -84,8 +115,7 @@ def _upload_file(content: bytes, filename: str) -> str:
 @router.post("/")
 async def upload_file(file: UploadFile = File(...), _user=Depends(get_current_user)):
     content = await file.read()
-    if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="Arquivo muito grande (máx 10 MB)")
+    _validate_file(file, content)
     url = _upload_file(content, file.filename or "")
     return {"filename": file.filename, "url": url}
 
@@ -93,8 +123,7 @@ async def upload_file(file: UploadFile = File(...), _user=Depends(get_current_us
 @router.post("/file")
 async def upload_file_named(file: UploadFile = File(...), _user=Depends(get_current_user)):
     content = await file.read()
-    if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="Arquivo muito grande (máx 10 MB)")
+    _validate_file(file, content)
     url = _upload_file(content, file.filename or "")
     return {"url": url}
 
@@ -106,10 +135,11 @@ async def download_proxy(url: str = Query(...), name: str = Query("arquivo")):
     tenta renderizar inline (corrige PDF/zip que davam erro 400/visualizador)."""
     safe_name = (name or "arquivo").replace('"', "").replace("\n", " ").strip() or "arquivo"
 
-    # arquivo local (dev)
+    # arquivo local (dev) — basename remove qualquer "../" (anti path traversal)
     if url.startswith("/uploads/"):
-        path = url.lstrip("/")
-        if not os.path.exists(path):
+        name_only = os.path.basename(url)
+        path = os.path.join(UPLOAD_DIR, name_only)
+        if not name_only or not os.path.exists(path):
             raise HTTPException(status_code=404, detail="Arquivo não encontrado")
         return FileResponse(path, filename=safe_name)
 
