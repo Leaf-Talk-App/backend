@@ -3,6 +3,7 @@ from bson import ObjectId
 from fastapi import HTTPException
 from app.core.database import get_database
 from app.core.websocket import manager
+from app.core.logger import security_logger
 
 
 async def deliver_direct_message(sender_id: str, receiver_id: str, content: str):
@@ -102,6 +103,7 @@ async def send_message(current_user, data):
         raise HTTPException(status_code=404, detail="Chat not found")
     participants = chat.get("participants") or []
     if current_user["sub"] not in participants:
+        security_logger.warning("forbidden_send_message sub=%s chat=%s", current_user["sub"], data.chat_id)
         raise HTTPException(status_code=403, detail="Not a participant of this chat")
     if data.receiver_id not in participants:
         raise HTTPException(status_code=400, detail="Receiver is not part of this chat")
@@ -473,6 +475,7 @@ async def get_messages(chat_id: str, skip: int = 0, limit: int = 50, user_id: st
         if not chat:
             raise HTTPException(status_code=404, detail="Chat not found")
         if user_id not in (chat.get("participants") or []) and user_id not in (chat.get("members") or []):
+            security_logger.warning("forbidden_read_messages sub=%s chat=%s", user_id, chat_id)
             raise HTTPException(status_code=403, detail="Not a participant of this chat")
 
         # "apagar para mim" (per-user): some só para quem apagou

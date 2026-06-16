@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from fastapi.responses import FileResponse, Response
 from app.dependencies import get_current_user
 from app.core.cloudinary_service import is_cloudinary_enabled, upload_bytes, upload_bytes_raw
+from app.core.logger import security_logger
 
 router = APIRouter(prefix="/upload", tags=["Upload"])
 
@@ -117,6 +118,7 @@ async def upload_file(file: UploadFile = File(...), _user=Depends(get_current_us
     content = await file.read()
     _validate_file(file, content)
     url = _upload_file(content, file.filename or "")
+    security_logger.info("upload sub=%s type=%s size=%d", _user.get("sub"), file.content_type, len(content))
     return {"filename": file.filename, "url": url}
 
 
@@ -125,6 +127,7 @@ async def upload_file_named(file: UploadFile = File(...), _user=Depends(get_curr
     content = await file.read()
     _validate_file(file, content)
     url = _upload_file(content, file.filename or "")
+    security_logger.info("upload sub=%s type=%s size=%d", _user.get("sub"), file.content_type, len(content))
     return {"url": url}
 
 

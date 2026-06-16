@@ -1,7 +1,9 @@
 from fastapi import APIRouter, status, Depends, BackgroundTasks, Request
 from urllib.parse import urlencode
+from fastapi import HTTPException
 from app.core.email import send_email
 from app.core.ratelimit import limiter
+from app.core.logger import security_logger
 from app.dependencies import get_current_user
 from app.modules.auth.email_templates import (
     verification_email_template,
@@ -55,7 +57,15 @@ async def register(request: Request, data: RegisterSchema, background_tasks: Bac
 @router.post("/login")
 @limiter.limit("5/minute")
 async def login(request: Request, data: LoginSchema, db=Depends(get_database)):
-    return await login_user(data, db)
+    ip = request.client.host if request.client else "?"
+    try:
+        result = await login_user(data, db)
+    except HTTPException as exc:
+        # Falha de login (credencial errada / e-mail não verificado) — auditoria.
+        security_logger.warning("login_failed email=%s ip=%s status=%s", data.email, ip, exc.status_code)
+        raise
+    security_logger.info("login_ok email=%s ip=%s", data.email, ip)
+    return result
 
 
 @router.post("/logout")
