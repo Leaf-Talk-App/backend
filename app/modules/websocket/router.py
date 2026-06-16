@@ -1,6 +1,9 @@
 from fastapi import APIRouter
 from fastapi import WebSocket
 from fastapi import WebSocketDisconnect
+from fastapi import Query
+from jose import jwt, JWTError
+from app.core.config import settings
 from app.core.websocket import manager
 
 router = APIRouter(
@@ -12,8 +15,23 @@ router = APIRouter(
 @router.websocket("/{user_id}")
 async def websocket_endpoint(
     websocket: WebSocket,
-    user_id: str
+    user_id: str,
+    token: str = Query(default=None),
 ):
+    # AUTENTICAÇÃO (corrige spoofing): o token JWT (?token=) precisa ser válido e
+    # seu `sub` precisa bater com o user_id da URL. Antes qualquer um conectava
+    # como qualquer user_id e recebia as mensagens em tempo real da vítima.
+    authed_id = None
+    if token:
+        try:
+            payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+            authed_id = payload.get("sub")
+        except JWTError:
+            authed_id = None
+    if not authed_id or authed_id != user_id:
+        await websocket.close(code=4401)
+        return
+
     await manager.connect(
         user_id,
         websocket

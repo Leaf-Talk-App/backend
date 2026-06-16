@@ -82,7 +82,7 @@ def _upload_file(content: bytes, filename: str) -> str:
 # ── endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(file: UploadFile = File(...), _user=Depends(get_current_user)):
     content = await file.read()
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail="Arquivo muito grande (máx 10 MB)")
@@ -91,7 +91,7 @@ async def upload_file(file: UploadFile = File(...)):
 
 
 @router.post("/file")
-async def upload_file_named(file: UploadFile = File(...)):
+async def upload_file_named(file: UploadFile = File(...), _user=Depends(get_current_user)):
     content = await file.read()
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail="Arquivo muito grande (máx 10 MB)")

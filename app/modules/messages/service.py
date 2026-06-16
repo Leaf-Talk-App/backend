@@ -94,6 +94,18 @@ async def send_message(current_user, data):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid chat ID")
 
+    # AUTORIZAÇÃO: só envia em chat de que você participa, e só para o outro
+    # participante. Antes dava p/ injetar mensagem em conversa alheia (chat_id
+    # arbitrário no body).
+    chat = await db.chats.find_one({"_id": chat_oid}, {"participants": 1})
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    participants = chat.get("participants") or []
+    if current_user["sub"] not in participants:
+        raise HTTPException(status_code=403, detail="Not a participant of this chat")
+    if data.receiver_id not in participants:
+        raise HTTPException(status_code=400, detail="Receiver is not part of this chat")
+
     # Destinatário bloqueou o remetente → NÃO avisa o remetente nem entrega.
     # Estilo WhatsApp: o envio "parece" ok pra quem bloqueou-não-sabe, mas a
     # mensagem fica oculta do bloqueador (deleted_for) e nada chega/notifica ele.
@@ -450,6 +462,19 @@ async def get_messages(chat_id: str, skip: int = 0, limit: int = 50, user_id: st
     query = {"chat_id": chat_id}
 
     if user_id:
+        # AUTORIZAÇÃO (corrige IDOR): só participante/membro lê as mensagens.
+        # Antes a rota retornava qualquer chat_id → vazava conversa alheia.
+        try:
+            chat = await db.chats.find_one(
+                {"_id": ObjectId(chat_id)}, {"participants": 1, "members": 1}
+            )
+        except Exception:
+            chat = None
+        if not chat:
+            raise HTTPException(status_code=404, detail="Chat not found")
+        if user_id not in (chat.get("participants") or []) and user_id not in (chat.get("members") or []):
+            raise HTTPException(status_code=403, detail="Not a participant of this chat")
+
         # "apagar para mim" (per-user): some só para quem apagou
         query["deleted_for"] = {"$ne": user_id}
 
