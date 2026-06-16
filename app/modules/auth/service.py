@@ -74,8 +74,21 @@ async def login_user(data, db):
     if not user.get("verified", False):
         raise HTTPException(status_code=403, detail="EMAIL_NOT_VERIFIED")
 
-    token = create_access_token({"sub": str(user["_id"]), "email": user["email"]})
+    token = create_access_token({
+        "sub": str(user["_id"]),
+        "email": user["email"],
+        "tv": user.get("token_version", 0),
+    })
     return {"access_token": token, "token_type": "bearer"}
+
+
+async def logout_user(user_id: str, db):
+    """Invalida TODAS as sessões do usuário: incrementa token_version, então
+    qualquer token emitido antes para de ser aceito por get_current_user."""
+    await db.users.update_one(
+        {"_id": ObjectId(user_id)}, {"$inc": {"token_version": 1}}
+    )
+    return {"message": "Logged out"}
 
 
 async def verify_email_code(data, db):
@@ -230,7 +243,11 @@ async def login_or_create_google_user(google_profile: dict, db):
             {"$set": {"verified": True, "auth_provider": "google"}},
         )
 
-    token = create_access_token({"sub": str(user["_id"]), "email": email})
+    token = create_access_token({
+        "sub": str(user["_id"]),
+        "email": email,
+        "tv": user.get("token_version", 0),
+    })
     return {"access_token": token, "token_type": "bearer"}
 
 

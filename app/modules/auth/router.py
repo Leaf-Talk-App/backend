@@ -2,6 +2,7 @@ from fastapi import APIRouter, status, Depends, BackgroundTasks, Request
 from urllib.parse import urlencode
 from app.core.email import send_email
 from app.core.ratelimit import limiter
+from app.dependencies import get_current_user
 from app.modules.auth.email_templates import (
     verification_email_template,
     reset_password_email_template,
@@ -21,6 +22,7 @@ from .schemas import (
 from .service import (
     register_user,
     login_user,
+    logout_user,
     verify_email_code,
     resend_verification_code,
     request_password_reset,
@@ -54,6 +56,12 @@ async def register(request: Request, data: RegisterSchema, background_tasks: Bac
 @limiter.limit("5/minute")
 async def login(request: Request, data: LoginSchema, db=Depends(get_database)):
     return await login_user(data, db)
+
+
+@router.post("/logout")
+async def logout(user=Depends(get_current_user), db=Depends(get_database)):
+    # Invalida o token atual (e os demais) no backend, não só no cliente.
+    return await logout_user(user["sub"], db)
 
 
 @router.post("/verify-email")
