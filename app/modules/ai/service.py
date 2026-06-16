@@ -131,6 +131,12 @@ async def ask_ai(prompt: str, current_user, attachment_url: str = None, attachme
     db = get_database()
     user_tz = _resolve_tz(tz_name, tz_offset_min)
 
+    # Anexo SEM texto → o Humberto já analisa por conta própria (antes mandava um
+    # bloco de texto vazio e ficava sem saber o que fazer com a mídia).
+    prompt = (prompt or "").strip()
+    if not prompt and attachment_url:
+        prompt = "Analise este anexo e me diga o que é, resumindo o conteúdo principal."
+
     # Conteúdo do turno do usuário: texto + anexo opcional (imagem / PDF).
     # Claude Haiku 4.5 é multimodal (imagem e PDF). Áudio não é suportado pela
     # API da Anthropic → anexos de áudio são ignorados (segue só com o texto).
@@ -304,27 +310,30 @@ async def _prepare_action(current_user, data, user_tz):
             return None, ask
         return None, f'Não encontrei o contato "{to_name}". Confira o nome e tente de novo.'
 
+    ambiguous = False
     if len(matches) > 1:
-        # Mais de um contato com o MESMO nome → nunca escolhe sozinho. Prefere
-        # quem o usuário já conversa; se ainda houver dúvida, pede o e-mail.
-        my_contacts = await _user_contacts(current_user["sub"])
-        my_ids = {str(u["_id"]) for u in my_contacts}
-        known = [m for m in matches if str(m["_id"]) in my_ids]
-        if len(known) == 1:
-            matches = known
-        else:
-            pool = known or matches
-            opts = "; ".join(
-                f'{_name_of(u)} ({u.get("email") or "sem e-mail"})' for u in pool[:5]
-            )
-            return None, (
-                f'Encontrei mais de um contato chamado "{to_name}": {opts}. '
-                "Me diga o e-mail de quem deve receber para eu não errar a pessoa."
-            )
+        # Mais de um contato com o MESMO nome. Em vez de exigir o e-mail (o
+        # usuário quase nunca sabe de cabeça), o palpite é o contato com quem ele
+        # conversou MAIS RECENTEMENTE. O e-mail aparece no card p/ ele conferir
+        # antes de confirmar — se for outro, é só tocar em "Não enviar".
+        chats = await db.chats.find({"participants": current_user["sub"]}).to_list(500)
+        recency = {}
+        for c in chats:
+            for p in c.get("participants", []):
+                if p and p != current_user["sub"]:
+                    recency[p] = c.get("updated_at") or datetime.min
+        known = [m for m in matches if str(m["_id"]) in recency]
+        pool = known or matches
+        pool.sort(key=lambda u: recency.get(str(u["_id"])) or datetime.min, reverse=True)
+        matches = pool
+        ambiguous = True
 
     contact = matches[0]
     receiver_id = str(contact["_id"])
     display = contact.get("display_name") or contact.get("name") or to_name
+    # Quando há homônimos, mostra o e-mail junto p/ o usuário confirmar a pessoa.
+    email = contact.get("email")
+    recipient_label = f"{display} ({email})" if ambiguous and email else display
     now = datetime.now(timezone.utc)
 
     # AGENDAR vs ENVIAR é decidido pela presença de datetime VÁLIDO (não pelo
@@ -358,7 +367,7 @@ async def _prepare_action(current_user, data, user_tz):
 
     pending = {
         "user_id": current_user["sub"],
-        "to": display,
+        "to": recipient_label,
         "receiver_id": receiver_id,
         "content": content,
         "kind": "schedule" if is_schedule else "send",
@@ -374,16 +383,21 @@ async def _prepare_action(current_user, data, user_tz):
         "task_id": str(result.inserted_id),
         "type": "schedule" if is_schedule else "send",
         "title": "Agendar mensagem" if is_schedule else "Enviar mensagem",
-        "recipient": display,
+        "recipient": recipient_label,
         "body": content,
         "scheduledFor": scheduled_label,
     }
     reply_text = (
-        f'Quero confirmar: agendar "{content}" para {display} em {scheduled_label}? '
+        f'Quero confirmar: agendar "{content}" para {recipient_label} em {scheduled_label}? '
         "Toque em Confirmar abaixo."
         if is_schedule
-        else f'Quero confirmar: enviar "{content}" para {display}? Toque em Confirmar abaixo.'
+        else f'Quero confirmar: enviar "{content}" para {recipient_label}? Toque em Confirmar abaixo.'
     )
+    if ambiguous:
+        reply_text += (
+            f" (Existe mais de um {display} — confira pelo e-mail; se for outro, "
+            "toque em Não enviar e me diga mais detalhes.)"
+        )
     return card, reply_text
 
 
