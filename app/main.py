@@ -17,6 +17,7 @@ from app.modules.ai.router import router as ai_router
 from app.modules.upload.router import router as upload_router
 from app.modules.groups.router import router as groups_router
 from app.modules.websocket.router import router as websocket_router
+from app.modules.quiz.router import router as quiz_router
 
 app = FastAPI(title=settings.APP_NAME)
 
@@ -57,6 +58,7 @@ app.include_router(ai_router)
 app.include_router(upload_router)
 app.include_router(groups_router)
 app.include_router(websocket_router)   # /ws/{user_id} — typing + new_message
+app.include_router(quiz_router)        # /quiz — experiência ao vivo da apresentação
 
 # ── Static (uploads) ──────────────────────────────────────────────────────────
 os.makedirs("uploads", exist_ok=True)
