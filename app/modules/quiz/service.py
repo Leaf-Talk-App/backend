@@ -1,7 +1,7 @@
 from datetime import datetime, timezone, timedelta
 from fastapi import HTTPException
 from app.core.database import get_database
-from .questions import QUESTIONS
+from .questions import QUESTIONS, QUIZ_SIZE
 
 _MAX_DURATION_MS = 1000 * 60 * 60 * 2  # 2h — descarta tempos absurdos
 _RANK_SORT = [("score", -1), ("duration_ms", 1), ("created_at", 1)]
@@ -12,7 +12,7 @@ def _serialize(a: dict, position: int | None = None) -> dict:
     return {
         "name": a.get("name", ""),
         "score": a.get("score", 0),
-        "total": a.get("total", len(QUESTIONS)),
+        "total": a.get("total", QUIZ_SIZE),
         "duration_ms": a.get("duration_ms", 0),
         "created_at": created.isoformat() if created else None,
         **({"position": position} if position is not None else {}),
@@ -36,11 +36,18 @@ async def submit_attempt(data) -> dict:
     if recent:
         raise HTTPException(status_code=429, detail="Aguarde alguns segundos antes de enviar de novo.")
 
-    answers = data.answers or []
-    total = len(QUESTIONS)
-    score = sum(
-        1 for i, q in enumerate(QUESTIONS) if i < len(answers) and answers[i] == q["answer"]
-    )
+    # Correção por id (cada device recebeu um sorteio diferente). Dedup por id
+    # para ninguém inflar a pontuação repetindo a mesma pergunta.
+    total = QUIZ_SIZE
+    seen = set()
+    score = 0
+    for r in (data.responses or []):
+        if r.id in seen:
+            continue
+        seen.add(r.id)
+        if 0 <= r.id < len(QUESTIONS) and r.answer == QUESTIONS[r.id]["answer"]:
+            score += 1
+    score = min(score, total)
     duration = min(max(0, int(data.duration_ms or 0)), _MAX_DURATION_MS)
 
     doc = {
@@ -79,3 +86,18 @@ async def get_ranking(limit: int = 50) -> dict:
 async def get_stats() -> dict:
     db = get_database()
     return {"participants": await db.quiz_attempts.count_documents({})}
+
+
+async def reset_ranking(key: str) -> dict:
+    """Zera o ranking (apaga todas as tentativas). Exige a chave secreta
+    (QUIZ_ADMIN_KEY). Se a chave não estiver configurada, o reset é negado."""
+    from app.core.config import settings
+
+    if not settings.QUIZ_ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="Reset desabilitado (defina QUIZ_ADMIN_KEY).")
+    if key != settings.QUIZ_ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="Chave inválida.")
+
+    db = get_database()
+    result = await db.quiz_attempts.delete_many({})
+    return {"message": "Ranking zerado", "removidos": result.deleted_count}

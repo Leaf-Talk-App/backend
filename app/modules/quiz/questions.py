@@ -1,74 +1,183 @@
-"""Perguntas do Leaf Quiz (apresentação). A resposta correta (índice em `opcoes`)
-fica SÓ no backend — o frontend recebe as perguntas sem o gabarito e a correção
-é feita no servidor (impede cola pelo DevTools)."""
+"""Banco de perguntas do Leaf Quiz (apresentação).
+
+São ~50 perguntas SIMPLES e acessíveis (qualquer pessoa consegue responder, sem
+ser do tech) sobre os temas que o Leaf representa: Inteligência Artificial,
+apps de mensagem/comunicação, segurança digital e internet do dia a dia.
+
+A cada acesso, o servidor sorteia 10 perguntas em ordem aleatória (cada
+dispositivo recebe um conjunto/ordem diferente). A resposta correta (índice em
+`opcoes`) fica SÓ no backend — o frontend nunca recebe o gabarito; a correção é
+feita no servidor pelo `id` da pergunta.
+"""
+import random
+
+QUIZ_SIZE = 10  # quantas perguntas cada pessoa responde por sessão
 
 QUESTIONS = [
-    {
-        "pergunta": "Qual tecnologia permite que um sistema aprenda padrões a partir de dados sem ser explicitamente programado para cada situação?",
-        "opcoes": ["API REST", "Machine Learning", "Blockchain", "Criptografia"],
-        "answer": 1,
-    },
-    {
-        "pergunta": "Qual é o principal benefício da criptografia ponta a ponta?",
-        "opcoes": [
-            "Backup automático",
-            "Somente remetente e destinatário podem ler",
-            "Maior velocidade",
-            "Menor consumo",
-        ],
-        "answer": 1,
-    },
-    {
-        "pergunta": "O que é NLP?",
-        "opcoes": [
-            "Banco de Dados",
-            "Processamento de Linguagem Natural",
-            "Rede Neural Convolucional",
-            "API",
-        ],
-        "answer": 1,
-    },
-    {
-        "pergunta": "Qual tecnologia normalmente mantém chats em tempo real?",
-        "opcoes": ["FTP", "WebSocket", "SMTP", "Bluetooth"],
-        "answer": 1,
-    },
-    {
-        "pergunta": "O que caracteriza IA Generativa?",
-        "opcoes": ["Armazenar dados", "Criar conteúdo novo", "Comprimir arquivos", "Monitorar rede"],
-        "answer": 1,
-    },
-    {
-        "pergunta": "Qual arquitetura é usada por modelos como ChatGPT?",
-        "opcoes": ["CNN", "RNN", "Transformer", "Perceptron"],
-        "answer": 2,
-    },
-    {
-        "pergunta": "Qual banco é mais usado para alta escalabilidade de mensagens?",
-        "opcoes": ["Excel", "TXT", "NoSQL", "PDF"],
-        "answer": 2,
-    },
-    {
-        "pergunta": "O que são notificações push?",
-        "opcoes": ["Atualizações em tempo real", "Backup", "Compressão", "Firewall"],
-        "answer": 0,
-    },
-    {
-        "pergunta": "Qual recurso pode usar IA em aplicativos de conversa?",
-        "opcoes": ["Resposta inteligente", "Volume", "Brilho", "Instalação"],
-        "answer": 0,
-    },
-    {
-        "pergunta": "Qual método é amplamente usado para autenticação moderna?",
-        "opcoes": ["Token", "DNS", "HTML", "Cache"],
-        "answer": 0,
-    },
+    # ── Inteligência Artificial ──────────────────────────────────────────────
+    {"pergunta": "O que é Inteligência Artificial (IA)?",
+     "opcoes": ["Um tipo de bateria", "Programas que imitam a capacidade humana de aprender e decidir", "Uma rede de cabos", "Um aplicativo de fotos"],
+     "answer": 1},
+    {"pergunta": "O que um assistente virtual (como a Siri ou o Humberto do Leaf) faz?",
+     "opcoes": ["Entende perguntas e responde ou executa tarefas", "Aumenta o volume do som", "Carrega o celular", "Tira o pó da tela"],
+     "answer": 0},
+    {"pergunta": "Como a Inteligência Artificial normalmente 'aprende'?",
+     "opcoes": ["Dormindo", "Analisando muitos exemplos e dados", "Trocando de cor", "Reiniciando o aparelho"],
+     "answer": 1},
+    {"pergunta": "O que é IA generativa?",
+     "opcoes": ["Uma tomada especial", "Um tipo de wifi", "Cria textos, imagens ou respostas novas", "Um antivírus"],
+     "answer": 2},
+    {"pergunta": "O ChatGPT é um exemplo de quê?",
+     "opcoes": ["Uma planilha", "Inteligência Artificial que conversa", "Um jogo de cartas", "Um carregador"],
+     "answer": 1},
+    {"pergunta": "Quando o app sugere uma resposta pronta para a sua mensagem, ele está usando o quê?",
+     "opcoes": ["Inteligência Artificial", "A câmera", "O alto-falante", "O brilho da tela"],
+     "answer": 0},
+    {"pergunta": "A Inteligência Artificial pode errar?",
+     "opcoes": ["Nunca erra", "Sim, ela nem sempre acerta", "Só erra à noite", "Só erra sem internet"],
+     "answer": 1},
+    {"pergunta": "Para que serve um chatbot?",
+     "opcoes": ["Medir a temperatura", "Conversar e ajudar de forma automática", "Tirar fotos", "Aumentar a memória"],
+     "answer": 1},
+    {"pergunta": "O que é reconhecimento de voz?",
+     "opcoes": ["A máquina transformar a fala em texto", "Aumentar o volume sozinho", "Gravar vídeo", "Trocar a senha"],
+     "answer": 0},
+    {"pergunta": "Tradutores automáticos (que traduzem um idioma na hora) usam principalmente o quê?",
+     "opcoes": ["Bluetooth", "Inteligência Artificial", "Lanterna", "Cartão de memória"],
+     "answer": 1},
+    {"pergunta": "Quando seu celular reconhece seu rosto para desbloquear, ele usa:",
+     "opcoes": ["Inteligência Artificial", "Apenas a bateria", "O fone de ouvido", "O carregador"],
+     "answer": 0},
+    {"pergunta": "Uma IA que recomenda vídeos ou músicas para você faz isso com base em quê?",
+     "opcoes": ["Na cor do aparelho", "No que você costuma assistir/ouvir", "No clima da cidade", "No nível da bateria"],
+     "answer": 1},
+
+    # ── Apps de mensagem e comunicação ───────────────────────────────────────
+    {"pergunta": "Para que serve um aplicativo de mensagens?",
+     "opcoes": ["Para conversar e trocar arquivos", "Para medir passos", "Para ligar a TV", "Para calcular contas"],
+     "answer": 0},
+    {"pergunta": "O que significa uma mensagem chegar 'em tempo real'?",
+     "opcoes": ["Ela chega no dia seguinte", "Ela chega quase na hora, instantaneamente", "Ela chega só com wifi", "Ela nunca chega"],
+     "answer": 1},
+    {"pergunta": "Para que serve um grupo em um app de mensagens?",
+     "opcoes": ["Conversar com várias pessoas ao mesmo tempo", "Aumentar a bateria", "Guardar fotos", "Trocar a senha"],
+     "answer": 0},
+    {"pergunta": "O 'visto por último' costuma mostrar o quê?",
+     "opcoes": ["A senha da pessoa", "Quando a pessoa usou o app pela última vez", "O endereço dela", "O saldo dela"],
+     "answer": 1},
+    {"pergunta": "Dois tiquinhos (✓✓) ao lado da mensagem geralmente indicam:",
+     "opcoes": ["Que a mensagem foi apagada", "Que a mensagem foi entregue/lida", "Que acabou a internet", "Que o celular travou"],
+     "answer": 1},
+    {"pergunta": "Para que serve uma notificação?",
+     "opcoes": ["Avisar que algo novo aconteceu", "Desligar o aparelho", "Aumentar o preço", "Trocar o idioma"],
+     "answer": 0},
+    {"pergunta": "O que é um emoji?",
+     "opcoes": ["Um vírus", "Um pequeno símbolo/figurinha para expressar emoção", "Um tipo de senha", "Uma rede social"],
+     "answer": 1},
+    {"pergunta": "O que é uma videochamada?",
+     "opcoes": ["Uma foto antiga", "Uma conversa por vídeo em tempo real", "Um e-mail", "Um backup"],
+     "answer": 1},
+    {"pergunta": "O que normalmente acontece ao bloquear um contato?",
+     "opcoes": ["Ele não consegue mais te enviar mensagens", "Ele ganha um presente", "Você perde suas fotos", "O app desinstala"],
+     "answer": 0},
+    {"pergunta": "Agendar uma mensagem significa:",
+     "opcoes": ["Apagar a mensagem", "Programar para enviar depois, na hora marcada", "Traduzir a mensagem", "Imprimir a mensagem"],
+     "answer": 1},
+    {"pergunta": "O que é um 'anexo' em uma conversa?",
+     "opcoes": ["Um arquivo (foto, documento) enviado junto", "Um som de notificação", "Um tipo de letra", "Um contato bloqueado"],
+     "answer": 0},
+    {"pergunta": "Mandar um áudio em vez de digitar é útil quando:",
+     "opcoes": ["A internet está desligada", "Você prefere falar em vez de escrever", "Você quer apagar tudo", "O celular está sem som"],
+     "answer": 1},
+
+    # ── Segurança digital ────────────────────────────────────────────────────
+    {"pergunta": "O que é uma senha forte?",
+     "opcoes": ["O seu nome", "Uma senha longa, com letras, números e símbolos", "A data de aniversário", "A palavra 'senha'"],
+     "answer": 1},
+    {"pergunta": "Com quem você deve compartilhar a sua senha?",
+     "opcoes": ["Com ninguém", "Com todo mundo", "Com quem pedir", "Nas redes sociais"],
+     "answer": 0},
+    {"pergunta": "O que é criptografia, de um jeito simples?",
+     "opcoes": ["Apagar arquivos", "Embaralhar a informação para só os envolvidos entenderem", "Aumentar o brilho", "Criar um grupo"],
+     "answer": 1},
+    {"pergunta": "Criptografia de ponta a ponta garante que:",
+     "opcoes": ["A mensagem chega mais rápido", "Só quem envia e quem recebe conseguem ler a mensagem", "A bateria dura mais", "A foto fica colorida"],
+     "answer": 1},
+    {"pergunta": "Você recebe um link estranho de um número desconhecido. O ideal é:",
+     "opcoes": ["Clicar rápido", "Não clicar", "Compartilhar com todos", "Responder com sua senha"],
+     "answer": 1},
+    {"pergunta": "O que é 'phishing' (um golpe na internet)?",
+     "opcoes": ["Um tipo de foto", "Tentar te enganar para roubar dados ou senhas", "Um jogo online", "Um aplicativo de pesca"],
+     "answer": 1},
+    {"pergunta": "Para que serve a verificação em duas etapas?",
+     "opcoes": ["Deixar o app mais bonito", "Adicionar uma proteção extra além da senha", "Aumentar o sinal", "Trocar o idioma"],
+     "answer": 1},
+    {"pergunta": "Usar a mesma senha em todos os aplicativos é:",
+     "opcoes": ["Recomendado", "Arriscado", "Obrigatório", "Mais rápido e seguro"],
+     "answer": 1},
+    {"pergunta": "Alguém pede o código de verificação que chegou no seu celular. Você deve:",
+     "opcoes": ["Não passar o código para ninguém", "Enviar na hora", "Postar nas redes", "Ler em voz alta no ônibus"],
+     "answer": 0},
+    {"pergunta": "Para que serve fazer um backup?",
+     "opcoes": ["Para não perder seus dados se algo acontecer", "Para gastar bateria", "Para apagar fotos", "Para deixar o app lento"],
+     "answer": 0},
+    {"pergunta": "Manter os aplicativos atualizados ajuda a:",
+     "opcoes": ["Corrigir falhas e melhorar a segurança", "Acabar com a internet", "Apagar contatos", "Diminuir a tela"],
+     "answer": 0},
+    {"pergunta": "O que é um dado pessoal?",
+     "opcoes": ["Informações que identificam você, como CPF e e-mail", "Um tipo de jogo", "Uma cor de tela", "Um modelo de celular"],
+     "answer": 0},
+    {"pergunta": "Uma rede Wi-Fi pública e aberta (de shopping, por exemplo) é:",
+     "opcoes": ["Totalmente segura para tudo", "Menos segura para dados sensíveis, como senhas", "Mais rápida sempre", "Impossível de usar"],
+     "answer": 1},
+    {"pergunta": "O cadeado e o 'https' na barra do navegador indicam:",
+     "opcoes": ["Uma conexão mais segura", "Que o site está fechado", "Que vai cobrar dinheiro", "Que o site é falso"],
+     "answer": 0},
+
+    # ── Internet e tecnologia do dia a dia ───────────────────────────────────
+    {"pergunta": "O que é a 'nuvem' (cloud) na tecnologia?",
+     "opcoes": ["Guardar arquivos em servidores na internet", "Uma previsão do tempo", "Um filtro de foto", "Um tipo de bateria"],
+     "answer": 0},
+    {"pergunta": "Para que serve um QR Code (aquele quadradinho)?",
+     "opcoes": ["Abrir um link ou informação ao apontar a câmera", "Medir a pressão", "Carregar o celular", "Aumentar o som"],
+     "answer": 0},
+    {"pergunta": "O que é um aplicativo (app)?",
+     "opcoes": ["Um programa que roda no celular ou computador", "Um tipo de cabo", "Uma rede de TV", "Uma bateria externa"],
+     "answer": 0},
+    {"pergunta": "Qual a diferença entre um site e um aplicativo?",
+     "opcoes": ["Não existe diferença", "O app é instalado; o site abre no navegador", "Site só funciona à noite", "App não usa internet nunca"],
+     "answer": 1},
+    {"pergunta": "Para que serve o e-mail?",
+     "opcoes": ["Enviar e receber mensagens e arquivos pela internet", "Medir distância", "Tirar foto", "Ouvir rádio"],
+     "answer": 0},
+    {"pergunta": "O que significa estar 'online'?",
+     "opcoes": ["Estar sem bateria", "Estar conectado/disponível na internet", "Estar no modo avião", "Estar com o som alto"],
+     "answer": 1},
+    {"pergunta": "O que é um 'download'?",
+     "opcoes": ["Baixar um arquivo da internet para o seu aparelho", "Apagar um contato", "Desligar o wifi", "Trocar a senha"],
+     "answer": 0},
+    {"pergunta": "O que é uma conta de usuário?",
+     "opcoes": ["Seu acesso pessoal a um serviço, com login e senha", "Uma conta de água", "Um tipo de foto", "Um aplicativo de banco apenas"],
+     "answer": 0},
+    {"pergunta": "Para criar uma conta em um app, normalmente você precisa de:",
+     "opcoes": ["Um e-mail e uma senha", "Uma impressora", "Um controle remoto", "Um pen drive"],
+     "answer": 0},
+    {"pergunta": "O que é um servidor, de forma simples?",
+     "opcoes": ["Um computador que guarda e entrega dados para outros", "Um garçom de app", "Um tipo de fone", "Uma tomada"],
+     "answer": 0},
+    {"pergunta": "O ícone girando (carregando) na tela geralmente indica:",
+     "opcoes": ["Que algo está sendo processado/carregado", "Que o app quebrou", "Que acabou a bateria", "Que você ganhou um prêmio"],
+     "answer": 0},
+    {"pergunta": "O que faz a internet conectar aparelhos no mundo todo?",
+     "opcoes": ["Uma grande rede que liga dispositivos entre si", "Apenas o bluetooth", "Somente cabos de TV", "A bateria do celular"],
+     "answer": 0},
 ]
 
 
-def public_questions():
-    """Perguntas SEM o gabarito (o que vai pro frontend)."""
+def sample_questions():
+    """Sorteia QUIZ_SIZE perguntas em ordem aleatória, SEM o gabarito."""
+    idxs = random.sample(range(len(QUESTIONS)), min(QUIZ_SIZE, len(QUESTIONS)))
     return [
-        {"id": i, "pergunta": q["pergunta"], "opcoes": q["opcoes"]}
-        for i, q in enumerate(QUESTIONS)
+        {"id": i, "pergunta": QUESTIONS[i]["pergunta"], "opcoes": QUESTIONS[i]["opcoes"]}
+        for i in idxs
     ]

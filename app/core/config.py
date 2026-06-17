@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     # IA — Humberto roda no Claude (Anthropic). Key vem do env, nunca hardcoded.
     ANTHROPIC_API_KEY: str = ""
 
+    # Chave p/ zerar o ranking do quiz (POST /quiz/reset?key=...). Defina no
+    # Render; se vazia, o reset fica DESABILITADO (ninguém apaga o ranking).
+    QUIZ_ADMIN_KEY: str = ""
+
     EMAIL_HOST: str = "smtp.gmail.com"
     EMAIL_PORT: int = 587
     EMAIL_USER: str = ""
