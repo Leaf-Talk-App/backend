@@ -365,6 +365,11 @@ async def update_group(current_user, data):
                 if new_rule
                 else "liberou o envio de mensagens para todos"
             )
+    if data.photo is not None:
+        photo = data.photo.strip()
+        if photo != (group.get("photo") or ""):
+            updates["photo"] = photo or None
+            changes.append("atualizou a foto do grupo" if photo else "removeu a foto do grupo")
 
     if not updates:
         return _serialize_group(group, group.get("last_message"))

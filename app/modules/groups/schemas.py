@@ -18,6 +18,7 @@ class UpdateGroupSchema(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     only_admins_can_send: Optional[bool] = None
+    photo: Optional[str] = None
 
 class SetAdminSchema(BaseModel):
     group_id: str
