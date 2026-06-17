@@ -8,6 +8,7 @@ class SendMessageSchema(BaseModel):
     type: str = "text"
     file_url: Optional[str] = None
     reply_to: Optional[str] = None
+    is_forwarded: bool = False
     
 class ReactMessageSchema(BaseModel):
     message_id: str
