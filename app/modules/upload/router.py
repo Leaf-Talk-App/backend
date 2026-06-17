@@ -27,6 +27,9 @@ ALLOWED_AUDIO_TYPES = {
     "audio/mpeg", "audio/ogg", "audio/webm",
     "audio/wav", "audio/mp4", "audio/x-m4a",
 }
+ALLOWED_VIDEO_TYPES = {
+    "video/mp4", "video/quicktime", "video/webm", "video/x-matroska",
+}
 
 # Lista branca p/ o upload genérico de arquivo: imagens, pdf, docx/doc, zip, txt.
 ALLOWED_FILE_TYPES = ALLOWED_IMAGE_TYPES | {
@@ -47,6 +50,7 @@ BLOCKED_EXTS = {
 MAX_IMAGE_SIZE = 5 * 1024 * 1024    # 5 MB
 MAX_AUDIO_SIZE = 20 * 1024 * 1024   # 20 MB
 MAX_FILE_SIZE  = 10 * 1024 * 1024   # 10 MB
+MAX_VIDEO_SIZE = 50 * 1024 * 1024   # 50 MB
 
 
 def _validate_file(file: UploadFile, content: bytes) -> None:
@@ -91,6 +95,21 @@ def _upload_audio(content: bytes, content_type: str) -> str:
     if is_cloudinary_enabled():
         return upload_bytes_raw(content, folder="leaf/audio", ext=ext)
     return _save_local(content, ext)
+
+
+# extensão por MIME de vídeo (para salvar local em dev)
+VIDEO_EXT_MAP = {
+    "video/mp4": ".mp4", "video/quicktime": ".mov",
+    "video/webm": ".webm", "video/x-matroska": ".mkv",
+}
+
+
+def _upload_video(content: bytes, content_type: str) -> str:
+    # resource_type="video" → o Cloudinary processa/serve como vídeo (player
+    # inline). NÃO usar raw (não entrega corretamente para <video>).
+    if is_cloudinary_enabled():
+        return upload_bytes(content, folder="leaf/videos", resource_type="video")
+    return _save_local(content, VIDEO_EXT_MAP.get(content_type, ".mp4"))
 
 
 def _upload_file(content: bytes, filename: str) -> str:
@@ -203,6 +222,24 @@ async def upload_chat_image(
     if len(content) > MAX_IMAGE_SIZE:
         raise HTTPException(status_code=413, detail="Imagem muito grande (máx 5 MB)")
     return {"url": _upload_image(content, content_type)}
+
+
+@router.post("/video")
+async def upload_chat_video(
+    file: UploadFile = File(...),
+    _user=Depends(get_current_user),
+):
+    # "video/mp4;codecs=..." → remover parâmetros antes de comparar
+    content_type = (file.content_type or "").split(";")[0].strip().lower()
+    if content_type not in ALLOWED_VIDEO_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Tipo de vídeo não suportado: '{content_type}'. Use mp4, mov, webm ou mkv.",
+        )
+    content = await file.read()
+    if len(content) > MAX_VIDEO_SIZE:
+        raise HTTPException(status_code=413, detail="Vídeo muito grande (máx 50 MB)")
+    return {"url": _upload_video(content, content_type)}
 
 
 @router.post("/audio")

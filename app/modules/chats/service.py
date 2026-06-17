@@ -256,6 +256,26 @@ async def my_chats(current_user):
         ]).to_list(2000)
         unread_by_chat = {a["_id"]: a["count"] for a in agg}
 
+    # Preview por-usuário: a ÚLTIMA mensagem VISÍVEL de cada 1:1 (que não foi
+    # apagada "só para mim"). O campo denormalizado chats.last_message é global
+    # e não sabe de deleted_for → sem isto, apagar a última mensagem só pra mim
+    # a mantinha aparecendo no preview da lista de conversas.
+    last_visible_by_chat = {}
+    if chat_ids:
+        vis = await db.messages.aggregate([
+            {"$match": {"chat_id": {"$in": chat_ids}, "deleted_for": {"$ne": user_id}}},
+            {"$sort": {"created_at": -1}},
+            {"$group": {"_id": "$chat_id", "doc": {"$first": "$$ROOT"}}},
+        ]).to_list(2000)
+        for v in vis:
+            d = v["doc"]
+            last_visible_by_chat[v["_id"]] = {
+                "content": d.get("content", ""),
+                "type": d.get("type", "text"),
+                "created_at": d.get("created_at"),
+                "status": d.get("status"),
+            }
+
     # outro participante de cada 1:1
     other_id_by_chat = {}
     other_ids = set()
@@ -315,7 +335,9 @@ async def my_chats(current_user):
             "participants": chat.get("participants"),
             "other_user": users_by_id.get(oid) if oid else None,
             "updated_at": _iso(chat.get("updated_at")),
-            "last_message": _serialize_last_message(chat.get("last_message")),
+            # preview respeita "apagar só pra mim" (cai p/ a mensagem visível
+            # anterior, ou None se o usuário apagou todas pra ele)
+            "last_message": _serialize_last_message(last_visible_by_chat.get(chat_id)),
             "pinned": settings.get("pinned", False) if settings else False,
             "archived": settings.get("archived", False) if settings else False,
             "muted": _is_muted(settings),

@@ -178,7 +178,14 @@ async def ask_ai(prompt: str, current_user, attachment_url: str = None, attachme
             if not content:
                 continue
             role = "assistant" if h.get("role") == "assistant" else "user"
-            history_msgs.append({"role": role, "content": content})
+            # Mantém a alternância user/assistant. Se o último item já é do mesmo
+            # papel (ex.: uma resposta vazia foi pulada e sobraram dois 'user'
+            # seguidos), funde no anterior — senão o Claude enxerga mensagens
+            # antigas como "em aberto" e responde de novo as já respondidas.
+            if history_msgs and history_msgs[-1]["role"] == role:
+                history_msgs[-1]["content"] += "\n" + content
+            else:
+                history_msgs.append({"role": role, "content": content})
         # a API exige começar por 'user'
         while history_msgs and history_msgs[0]["role"] != "user":
             history_msgs.pop(0)
@@ -199,10 +206,10 @@ async def ask_ai(prompt: str, current_user, attachment_url: str = None, attachme
     action_data = _try_parse_action(text)
     if action_data:
         card, reply_text = await _prepare_action(current_user, action_data, user_tz)
-        await _persist_history(current_user, prompt, attachment_url, reply_text)
+        await _persist_history(current_user, prompt, attachment_url, attachment_mime, reply_text)
         return {"reply": reply_text, "action": card} if card else {"reply": reply_text}
 
-    await _persist_history(current_user, prompt, attachment_url, text)
+    await _persist_history(current_user, prompt, attachment_url, attachment_mime, text)
     return {"reply": text}
 
 
@@ -447,7 +454,7 @@ def _parse_local_datetime(value, user_tz):
     return None
 
 
-async def _persist_history(current_user, prompt, attachment_url, reply_text):
+async def _persist_history(current_user, prompt, attachment_url, attachment_mime, reply_text):
     db = get_database()
     try:
         await db.ai_conversations.insert_many([
@@ -456,6 +463,7 @@ async def _persist_history(current_user, prompt, attachment_url, reply_text):
                 "role": "user",
                 "content": prompt,
                 "attachment_url": attachment_url,
+                "attachment_mime": attachment_mime,
                 "created_at": datetime.utcnow(),
             },
             {
@@ -479,6 +487,8 @@ async def get_ai_history(current_user):
         {
             "role": m["role"],
             "content": m["content"],
+            "attachment_url": m.get("attachment_url"),
+            "attachment_mime": m.get("attachment_mime"),
             "created_at": m["created_at"].isoformat() if m.get("created_at") else None,
         }
         for m in messages

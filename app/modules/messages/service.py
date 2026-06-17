@@ -162,6 +162,8 @@ async def send_message(current_user, data):
 
         "reply_to": reply_to,
         "reply_preview": reply_preview,
+        # marca mensagem encaminhada → o balão exibe o rótulo "Encaminhada"
+        "is_forwarded": bool(getattr(data, "is_forwarded", False)),
 
         "status": status,
         "read": is_self,  # auto-conversa: já "lida" → não vira badge de não lida
@@ -203,6 +205,7 @@ async def send_message(current_user, data):
         "file_url": data.file_url,
         "reply_to": reply_to,
         "reply_preview": reply_preview,
+        "is_forwarded": bool(getattr(data, "is_forwarded", False)),
         "created_at": now.isoformat(),
         "status": status,
     }
@@ -276,6 +279,7 @@ async def send_message(current_user, data):
         "file_url": data.file_url,
         "reply_to": reply_to,
         "reply_preview": reply_preview,
+        "is_forwarded": bool(getattr(data, "is_forwarded", False)),
         "created_at": now.isoformat(),
         "read": False,
         "edited": False,
@@ -518,6 +522,7 @@ async def get_messages(chat_id: str, skip: int = 0, limit: int = 50, user_id: st
             "deleted": message.get("deleted", False),
             "reply_to": message.get("reply_to"),
             "reply_preview": message.get("reply_preview"),
+            "is_forwarded": message.get("is_forwarded", False),
             "favorited": bool(user_id) and user_id in (message.get("favorited_by") or []),
             "created_at": _iso_utc(message.get("created_at")),
         })
